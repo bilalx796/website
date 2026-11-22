@@ -34,7 +34,7 @@ coral, kelp and reef animals. The centerpiece: the fish school swims into any sh
 draw.
 
 ### Mesh animation (which method and why)
-- **Skinning (kelp, sea turtle, manta ray, moray eel).** All four bend smoothly along a
+- **Skinning (kelp, sea turtle, manta ray, moray eel, shark).** All five bend smoothly along a
   chain (a stalk, a flipper, a wing, a body). A bone chain with each vertex blended
   between neighboring bones gives that continuous bend, and each frame only changes a
   few bone rotations.
@@ -42,6 +42,8 @@ draw.
   - Turtle: flippers blend body, then shoulder, then tip.
   - Manta: inner and outer wing bones with a traveling wave.
   - Eel: an 8-bone chain.
+  - Shark: one lathe body with a 6-bone chain from head to tail, swimming with a
+    wave that grows toward the tail. The fins ride on the bones.
 - **Morphing (jellyfish).** A jellyfish swims by changing the shape of its whole bell:
   it squeezes narrower and taller and the tentacles pull in. That isn't a rotation of
   rigid parts, so it suits blend shapes. The relaxed and contracted bells are morph
@@ -65,7 +67,8 @@ draw.
    planar fan, tubes, table) produce about 220 instanced corals in about 10 draw calls.
 
 Also: submarine (lathe hull, propeller, rudder and dive planes), beacon tower, mining
-rig (4 degrees of freedom), shark (3-segment articulated body), crabs (8 legs and 2
+rig (4 degrees of freedom), shark (skinned lathe body with a real shark profile,
+countershading, curved beveled fins, uneven tail), crabs (8 legs and 2
 claws each), sea floor (noise height field, vertex colors), hydrothermal vents.
 
 ### Most interesting behaviors (pick 2–3)
@@ -117,6 +120,15 @@ Yes, written in TSL (required by the WebGPU renderer). They're in `objects/shade
 - **Anemones:** sway that grows toward the tentacle tips, and tips that glow at night.
 
 ---
+
+## Camera
+The orbit camera is replaced by a free camera (`objects/freeCamera.js`): arrow keys or
+WASD move, dragging turns the view, E/Q go up and down, Shift is faster, and the scroll
+wheel moves forward and back.
+- The framework wasn't edited. Its orbit and fly controls are switched off from our code,
+  and the WorldUI menu shows "Free Camera". Follow, Drive and LookAt still work.
+- Forming a shape glides the camera to face it squarely ("📷 View shape" does it again).
+- "Send the shark" frames the chase from the side of the school.
 
 ## Earlier workbooks used (good for the video)
 

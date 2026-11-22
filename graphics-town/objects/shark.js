@@ -1,18 +1,32 @@
 // @ts-check
 /**
- * The shark - an articulated body that patrols, and sometimes hunts the school.
+ * The shark "Bruce" - a SKINNED body that patrols, and sometimes hunts the school.
  *
- * Model: three body segments in a chain (head/torso -> mid -> tail), each a
- * piece of a surface of revolution (LatheGeometry). Swimming = each segment
- * rotates side to side with a phase lag, so a wave runs down the body to the
- * tail fin (hierarchical modeling, Workbook 2/5).
+ * Model:
+ *  - the body is ONE surface of revolution (LatheGeometry) with a real shark
+ *    profile: a rounded pointed snout, the thickest part about a third of the way
+ *    back, tapering to a thin "caudal peduncle" where the tail attaches. It is
+ *    slightly flattened side-to-side and underneath.
+ *  - countershading with vertex colors: blue-grey on top, a white belly, blended
+ *    along the sides (like real sharks)
+ *  - fins are Shapes with curved edges, extruded with a small bevel so the edges
+ *    are rounded: a swept-back first dorsal fin, wing-like pectoral fins, small
+ *    pelvic / second dorsal / anal fins, and a heterocercal tail (the upper lobe
+ *    is bigger than the lower one)
+ *  - eyes, five gill slits and the underslung mouth
+ *
+ * Animation: linear blend SKINNING with a chain of 6 bones from head to tail.
+ * Each body vertex blends between the two nearest bones by its position along
+ * the body, so the body bends smoothly (no gaps between segments). Swimming is a
+ * traveling wave whose amplitude grows toward the tail; the fins ride on the
+ * bones they are attached to.
  *
  * Steering: the shark always steers toward a target with a LIMITED TURN RATE
- * (like turnToward in the Workbook 2 boids) - so it swims in smooth arcs.
+ * (like turnToward in the Workbook 2 boids), so it swims in smooth arcs.
  * State machine:
  *    patrol - the target is a "carrot" that moves along a big loop spline
- *    hunt   - every so often, it charges at the center of the fish school
- *             (the fish see it coming and scatter - see fishSchool.js)
+ *    hunt   - every so often (or when you press the button) it charges the
+ *             center of the fish school; the fish scatter (see fishSchool.js)
  *    return - swims back to the patrol loop, then patrols again
  * Rideable: ride along on the hunt!
  */
@@ -22,31 +36,71 @@ import { GrObject } from "CS559-Framework/GrObject.js";
 import { ClosedCardinalSpline } from "./util/curves.js";
 import { floorHeight } from "./terrain.js";
 import { reef } from "./reefState.js";
+import { addSkinWeights } from "./util/skin.js";
 
-/** radius of the shark body as a function of u (0 = tail tip, 1 = nose) */
-function bodyRadius(u) {
-  if (u > 0.85) return 0.55 * Math.sqrt(Math.max(0, 1 - ((u - 0.85) / 0.15) ** 2));
-  return 0.08 + 0.47 * Math.pow(u / 0.85, 0.9) * (u < 0.5 ? 1 : 1 - 0.15 * (u - 0.5));
+const Z_TAIL = -3.3; // where the body ends (the tail fin attaches here)
+const Z_NOSE = 2.7;
+const R = 0.62; // maximum body radius
+
+/** body radius at position z along the body */
+function radiusAt(z) {
+  const u = (z - Z_TAIL) / (Z_NOSE - Z_TAIL); // 0 = tail, 1 = nose
+  const peak = 0.62;
+  if (u >= peak) {
+    const t = (u - peak) / (1 - peak);
+    return R * Math.pow(Math.max(0, 1 - Math.pow(t, 2.4)), 0.55);
+  }
+  const t = u / peak;
+  return R * (0.11 + 0.89 * Math.pow(Math.sin((t * Math.PI) / 2), 1.5));
 }
 
-/** a lathe piece of the body between u0 and u1, along +Z, starting at z = 0 */
-function bodyPiece(u0, u1, length) {
+/** the body: lathe along z, flattened a little, countershaded with vertex colors */
+function bodyGeometry() {
   const pts = [];
-  const n = 12;
+  const n = 48;
   for (let i = 0; i <= n; i++) {
-    const u = u0 + ((u1 - u0) * i) / n;
-    pts.push(new T.Vector2(Math.max(0.001, bodyRadius(u)), ((u - u0) / (u1 - u0)) * length));
+    const z = Z_TAIL + ((Z_NOSE - Z_TAIL) * i) / n;
+    pts.push(new T.Vector2(Math.max(0.002, radiusAt(z)), z));
   }
-  const g = new T.LatheGeometry(pts, 20);
-  g.rotateX(Math.PI / 2);
-  g.scale(1, 1.1, 1); // a bit taller than wide
+  const g = new T.LatheGeometry(pts, 28);
+  g.rotateX(Math.PI / 2); // the lathe's axis (y) becomes z: nose at +z
+  const p = g.attributes.position;
+  const colors = [];
+  const back = new T.Color(0x56697a);
+  const belly = new T.Color(0xeef1f0);
+  const c = new T.Color();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const r = Math.max(0.002, radiusAt(z));
+    // slightly narrower side-to-side, flatter underneath
+    p.setX(i, x * 0.84);
+    p.setY(i, y < 0 ? y * 0.82 : y);
+    // countershading: blend from the back color to the belly color along the sides
+    const ny = y / r;
+    const t = Math.min(1, Math.max(0, (ny + 0.05) / 0.4)); // 0 below the side line, 1 above
+    const s = t * t * (3 - 2 * t);
+    c.copy(belly).lerp(back, s);
+    if (ny > 0.75) c.multiplyScalar(0.88); // a darker ridge along the back
+    colors.push(c.r, c.g, c.b);
+  }
+  g.setAttribute("color", new T.Float32BufferAttribute(colors, 3));
+  g.computeVertexNormals();
   return g;
 }
 
-/** a flat fin from a triangle-ish shape, in the x-y plane */
-function fin(points, thickness = 0.06) {
-  const s = new T.Shape(points.map(([x, y]) => new T.Vector2(x, y)));
-  return new T.ExtrudeGeometry(s, { depth: thickness, bevelEnabled: false });
+/**
+ * a fin: a closed outline (curves) extruded thinly with a small rounded bevel.
+ * Outline coordinates: a = along the body (+ forward), b = up (or out).
+ * @param {(s: T.Shape) => void} outline
+ */
+function finGeometry(outline, thickness = 0.04) {
+  const s = new T.Shape();
+  outline(s);
+  const g = new T.ExtrudeGeometry(s, {
+    depth: thickness, bevelEnabled: true, bevelThickness: 0.015, bevelSize: 0.015, bevelSegments: 2, curveSegments: 10,
+  });
+  g.translate(0, 0, -thickness / 2);
+  return g;
 }
 
 export class Shark extends GrObject {
@@ -55,70 +109,141 @@ export class Shark extends GrObject {
    * @param {Array<[number, number, number]>} p.route
    */
   constructor(p) {
-    const skin = new T.MeshStandardMaterial({ color: 0x6f8190, roughness: 0.5, metalness: 0.2 });
-    const belly = new T.MeshStandardMaterial({ color: 0xdfe6ea, roughness: 0.6 });
-    const L = 5.2;
+    const skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.1 });
+    const finMat = new T.MeshStandardMaterial({ color: 0x51647a, roughness: 0.45, metalness: 0.1, side: T.DoubleSide });
+    const darkMat = new T.MeshStandardMaterial({ color: 0x2a3640, roughness: 0.6 });
+    const eyeMat = new T.MeshStandardMaterial({ color: 0x050607, roughness: 0.1, metalness: 0.5 });
 
-    const root = new T.Group();
-    // segment 1: head + torso (from u = 0.5 to 1), pivot at its back end
-    const seg1 = new T.Group();
-    root.add(seg1);
-    seg1.add(new T.Mesh(bodyPiece(0.5, 1.0, L * 0.5), skin));
-    const bellyStrip = new T.Mesh(bodyPiece(0.55, 0.97, L * 0.42), belly);
-    bellyStrip.scale.set(0.95, 0.85, 1);
-    bellyStrip.position.set(0, -0.08, L * 0.025);
-    seg1.add(bellyStrip);
-    // dorsal fin and pectoral fins on the front segment
-    const dorsal = new T.Mesh(fin([[0, 0], [0.9, 0], [0.1, 1.0]]), skin);
-    dorsal.rotation.y = Math.PI / 2;
-    dorsal.position.set(0.03, 0.45, 1.6);
-    seg1.add(dorsal);
-    for (const s of [-1, 1]) {
-      const pec = new T.Mesh(fin([[0, 0], [0.9, 0.2], [0.2, -0.35]]), skin);
-      pec.rotation.set(Math.PI / 2, 0, s > 0 ? -2.5 : -0.64);
-      pec.position.set(s * 0.4, -0.25, 1.7);
-      seg1.add(pec);
-      // eyes and gill slits
-      const eye = new T.Mesh(new T.SphereGeometry(0.06, 8, 6), new T.MeshStandardMaterial({ color: 0x050505 }));
-      eye.position.set(s * 0.33, 0.12, L * 0.5 - 0.45);
-      seg1.add(eye);
-      for (let k = 0; k < 4; k++) {
-        const gill = new T.Mesh(new T.BoxGeometry(0.02, 0.22, 0.03), new T.MeshStandardMaterial({ color: 0x3f4a52 }));
-        gill.position.set(s * 0.46, 0, L * 0.5 - 0.9 - k * 0.1);
-        seg1.add(gill);
+    // --- skeleton: bone 0 is the head (root), each next bone further back
+    const BONE_Z = [1.2, 0.3, -0.6, -1.5, -2.4, -3.2];
+    const bones = BONE_Z.map(() => new T.Bone());
+    bones.forEach((b, k) => {
+      b.position.z = k === 0 ? BONE_Z[0] : BONE_Z[k] - BONE_Z[k - 1];
+      if (k > 0) bones[k - 1].add(b);
+    });
+
+    // --- body: skin weights blend the two nearest bones along z
+    const geo = bodyGeometry();
+    addSkinWeights(geo, v => {
+      if (v.z >= BONE_Z[0]) return [[0, 1]];
+      for (let k = 0; k < BONE_Z.length - 1; k++) {
+        const z0 = BONE_Z[k], z1 = BONE_Z[k + 1];
+        if (v.z <= z0 && v.z >= z1) {
+          const f = (z0 - v.z) / (z0 - z1);
+          return [[k, 1 - f], [k + 1, f]];
+        }
+      }
+      return [[BONE_Z.length - 1, 1]];
+    });
+    const body = new T.SkinnedMesh(geo, skinMat);
+    body.add(bones[0]);
+    body.bind(new T.Skeleton(bones));
+    body.frustumCulled = false;
+
+    /**
+     * attach a part to the bone nearest its z, giving its position in WORLD-of-shark coordinates
+     * @param {T.Object3D} part @param {number} x @param {number} y @param {number} z
+     */
+    const attach = (part, x, y, z) => {
+      let k = 0;
+      for (let i = 0; i < BONE_Z.length; i++) if (Math.abs(BONE_Z[i] - z) < Math.abs(BONE_Z[k] - z)) k = i;
+      part.position.set(x, y, z - BONE_Z[k]);
+      bones[k].add(part);
+    };
+    // fins whose outline is in the a(forward)/b(up) plane stand vertically along the body
+    const vertical = geom => {
+      const m = new T.Mesh(geom, finMat);
+      m.rotation.y = -Math.PI / 2; // outline a -> +z, b -> +y, thickness -> x
+      return m;
+    };
+
+    // first dorsal fin: swept back, curved trailing edge
+    const dorsal = vertical(finGeometry(s => {
+      s.moveTo(0.45, 0);
+      s.quadraticCurveTo(0.2, 0.6, -0.45, 1.05); // leading edge up to the swept-back tip
+      s.quadraticCurveTo(-0.3, 0.45, -0.55, 0.02); // concave trailing edge
+      s.lineTo(0.45, 0);
+    }, 0.05));
+    attach(dorsal, 0, radiusAt(0.2) * 0.92, 0.2);
+    // second dorsal and anal fins (small)
+    const small = (h, len) => vertical(finGeometry(s => {
+      s.moveTo(len * 0.5, 0);
+      s.quadraticCurveTo(len * 0.2, h * 0.6, -len * 0.4, h);
+      s.quadraticCurveTo(-len * 0.3, h * 0.4, -len * 0.5, 0);
+      s.lineTo(len * 0.5, 0);
+    }, 0.03));
+    attach(small(0.28, 0.32), 0, radiusAt(-2.0) * 0.95, -2.0);
+    const anal = small(0.24, 0.3);
+    anal.scale.y = -1; // hangs down (fins are double sided, so mirroring is fine)
+    attach(anal, 0, -radiusAt(-2.15) * 0.8, -2.15);
+
+    // tail fin: heterocercal - the upper lobe is longer than the lower one
+    const caudal = vertical(finGeometry(s => {
+      s.moveTo(0.15, 0.12);
+      s.quadraticCurveTo(-0.45, 0.6, -1.05, 1.3); // upper lobe leading edge
+      s.quadraticCurveTo(-0.75, 0.55, -0.42, 0.02); // back to the fork
+      s.quadraticCurveTo(-0.55, -0.35, -0.68, -0.72); // lower lobe trailing edge
+      s.quadraticCurveTo(-0.2, -0.45, 0.15, -0.1); // lower lobe leading edge
+      s.lineTo(0.15, 0.12);
+    }, 0.04));
+    attach(caudal, 0, 0, Z_TAIL + 0.1);
+
+    // pectoral fins: large, wing-like, angled down and back
+    for (const side of [-1, 1]) {
+      const pec = new T.Mesh(finGeometry(s => {
+        s.moveTo(0, 0.36);
+        s.quadraticCurveTo(0.7, 0.08, 1.25, -0.62); // leading edge out to the tip
+        s.quadraticCurveTo(0.7, -0.5, 0.05, -0.2); // curved trailing edge
+        s.lineTo(0, 0.36);
+      }, 0.04), finMat);
+      // outline: x = span (outward), y = chord (+ forward). Lay it flat: y -> +z
+      pec.rotation.x = Math.PI / 2;
+      const holder = new T.Group();
+      holder.scale.x = side;
+      holder.rotation.z = side * -0.22; // slight droop
+      holder.add(pec);
+      attach(holder, side * radiusAt(1.0) * 0.72, -radiusAt(1.0) * 0.45, 1.0);
+      // pelvic fins (small, further back)
+      const pel = new T.Mesh(finGeometry(s => {
+        s.moveTo(0, 0.12);
+        s.quadraticCurveTo(0.25, 0, 0.38, -0.22);
+        s.quadraticCurveTo(0.2, -0.2, 0, -0.08);
+        s.lineTo(0, 0.12);
+      }, 0.03), finMat);
+      pel.rotation.x = Math.PI / 2;
+      const pelHolder = new T.Group();
+      pelHolder.scale.x = side;
+      pelHolder.rotation.z = side * -0.6;
+      pelHolder.add(pel);
+      attach(pelHolder, side * radiusAt(-1.3) * 0.5, -radiusAt(-1.3) * 0.7, -1.3);
+    }
+
+    // eyes, gill slits and mouth (on the head bone)
+    for (const side of [-1, 1]) {
+      const eye = new T.Mesh(new T.SphereGeometry(0.055, 10, 8), eyeMat);
+      attach(eye, side * radiusAt(2.15) * 0.8, radiusAt(2.15) * 0.25, 2.15);
+      for (let k = 0; k < 5; k++) {
+        const z = 1.62 - k * 0.12;
+        const slit = new T.Mesh(new T.BoxGeometry(0.015, radiusAt(z) * 0.62 - k * 0.02, 0.025), darkMat);
+        slit.rotation.x = -0.12;
+        attach(slit, side * radiusAt(z) * 0.83, -0.02, z);
       }
     }
-    seg1.position.z = 0; // the torso starts at the origin and goes forward
+    // mouth: a narrow crescent underneath the snout (curving back at the corners)
+    const mouth = new T.Mesh(new T.TorusGeometry(0.15, 0.014, 6, 20, Math.PI), darkMat);
+    mouth.rotation.x = -Math.PI / 2;
+    mouth.scale.set(1, 0.9, 1);
+    attach(mouth, 0, -radiusAt(2.05) * 0.8, 1.98);
 
-    // segment 2: mid body (u 0.25 to 0.5), hangs behind seg1
-    const seg2 = new T.Group();
-    seg1.add(seg2);
-    const mid = new T.Mesh(bodyPiece(0.25, 0.5, L * 0.25), skin);
-    mid.position.z = -L * 0.25;
-    seg2.add(mid);
-    // segment 3: tail (u 0 to 0.25) with the tail fin
-    const seg3 = new T.Group();
-    seg3.position.z = -L * 0.25;
-    seg2.add(seg3);
-    const tailBody = new T.Mesh(bodyPiece(0.0, 0.25, L * 0.25), skin);
-    tailBody.position.z = -L * 0.25;
-    seg3.add(tailBody);
-    const caudal = new T.Mesh(fin([[0, 0], [-0.7, 1.1], [-0.35, 0], [-0.55, -0.6]]), skin);
-    caudal.rotation.y = -Math.PI / 2;
-    caudal.position.set(-0.03, 0, -L * 0.25 + 0.15);
-    seg3.add(caudal);
-    const secondDorsal = new T.Mesh(fin([[0, 0], [0.35, 0], [0.05, 0.3]]), skin);
-    secondDorsal.rotation.y = Math.PI / 2;
-    secondDorsal.position.set(0.03, 0.25, -0.5);
-    seg2.add(secondDorsal);
-
+    const root = new T.Group();
+    root.add(body);
     const seat = new T.Object3D();
-    seat.position.set(0, 0.8, 1.2);
-    seg1.add(seat);
+    seat.position.set(0, 0.75, 0.3);
+    bones[0].add(seat);
 
     super("Shark Bruce", root);
     this.root = root;
-    this.segs = [seg1, seg2, seg3];
+    this.bones = bones;
     this.rideable = seat;
     this.route = new ClosedCardinalSpline(p.route);
     this.carrot = 0; // distance of the patrol target along the route
@@ -129,20 +254,25 @@ export class Shark extends GrObject {
     /** @type {"patrol"|"hunt"|"return"} */
     this.state = "patrol";
     this.timer = 0;
-    this.huntEvery = 22;
+    this.huntEvery = 25;
+    this.huntLimit = 9;
     this.time = 0;
     this._t = new T.Vector3();
   }
 
   /** the shark's head position (the fish use this to flee) */
   getPosition() {
-    return this._t.copy(this.heading).multiplyScalar(1.5).add(this.pos);
+    return this._t.copy(this.heading).multiplyScalar(2).add(this.pos);
   }
 
-  /** go hunting now (also used by the Reef panel) */
-  hunt() {
+  /**
+   * go hunting now
+   * @param {boolean} [determined=false] - true when sent by the button: keep going until it gets there
+   */
+  hunt(determined = false) {
     this.state = "hunt";
     this.timer = 0;
+    this.huntLimit = determined ? 25 : 9;
   }
 
   /**
@@ -165,11 +295,12 @@ export class Shark extends GrObject {
       target = new T.Vector3(...this.route.atDistance(this.carrot + 7).pos);
       if (this.timer > this.huntEvery && school) this.hunt();
     } else if (this.state === "hunt") {
-      const c = school ? school.lookFromLookAt() : [0, 10, 0, 0, 10, 0];
-      target = new T.Vector3(c[3], c[4], c[5]);
-      wantSpeed = 7.5;
-      maxTurn = 1.3;
-      if (this.timer > 7 || this.pos.distanceTo(target) < 2.5) {
+      const c = school ? school.centerOfSchool() : new T.Vector3(0, 10, 0);
+      target = c;
+      const d = this.pos.distanceTo(target);
+      wantSpeed = d > 15 ? 10 : 7.5;
+      maxTurn = 1.6;
+      if (this.timer > this.huntLimit || d < 2.5) {
         this.state = "return";
         this.timer = 0;
       }
@@ -207,16 +338,18 @@ export class Shark extends GrObject {
     this.root.position.copy(this.pos);
     this.root.lookAt(this.pos.clone().add(this.heading));
 
-    // swimming wave down the body, faster when hunting
-    const freq = 2.2 + this.speed * 0.5;
-    const ph = this.time * freq;
-    this.segs[1].rotation.y = 0.18 * Math.sin(ph);
-    this.segs[2].rotation.y = 0.32 * Math.sin(ph - 1.0);
-    this.segs[0].rotation.y = 0.05 * Math.sin(ph + 1.0);
+    // swimming: a wave travels from head to tail, growing toward the tail,
+    // faster (and bigger) when it is swimming fast
+    const freq = 2.0 + this.speed * 0.45;
+    const big = 0.8 + this.speed * 0.05;
+    const amp = [0.025, 0.05, 0.08, 0.12, 0.16, 0.24];
+    this.bones.forEach((b, k) => {
+      b.rotation.y = big * amp[k] * Math.sin(this.time * freq - k * 0.85);
+    });
   }
 
   lookFromLookAt() {
     const p = this.root.position;
-    return [p.x + 8, p.y + 4, p.z + 8, p.x, p.y, p.z];
+    return [p.x + 8, p.y + 3, p.z + 8, p.x, p.y, p.z];
   }
 }

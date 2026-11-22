@@ -175,45 +175,26 @@ export class FishSchool extends GrObject {
   /**
    * Swim into a shape.
    * @param {Array<[number, number]>} pts2d - N points, roughly within [-0.5, 0.5]^2 (y up)
-   * @param {T.Camera} [camera] - the shape forms in front of this camera, facing it
+   * @param {T.Vector3} [viewFrom] - the (vertical) shape plane turns to face this
+   *   point horizontally, so the camera doesn't have to fly far to see it
+   * @returns {{center: T.Vector3, normal: T.Vector3}} where the shape is and which way it faces
    */
-  formShape(pts2d, camera) {
+  formShape(pts2d, viewFrom) {
     const N = this.N;
-    let S = SHAPE_SIZE;
+    const S = SHAPE_SIZE;
+    // the shape always forms in the open water above the town, high enough that
+    // it clears every roof; it is a vertical plane facing `normal`
     const center = new T.Vector3(...SHAPE_CENTER);
-    // the shape's plane: by default it faces +z
     const normal = new T.Vector3(0, 0, 1);
-    const right = new T.Vector3(1, 0, 0);
-    const up = new T.Vector3(0, 1, 0);
-    if (camera) {
-      // put the shape ~30 units in front of the camera, facing it squarely, so it
-      // looks on screen the way it was drawn
-      const eye = camera.getWorldPosition(new T.Vector3());
-      const look = camera.getWorldDirection(new T.Vector3());
-      const camUp = new T.Vector3(0, 1, 0).applyQuaternion(camera.getWorldQuaternion(new T.Quaternion()));
-      right.crossVectors(look, camUp).normalize();
-      up.crossVectors(right, look).normalize();
-      normal.copy(look).negate();
-      // Fit the shape at distance D: its bottom must stay above the rooftops and
-      // its top must stay inside the view. With h = how far we slide the center
-      // "up" (in screen space):
-      //    bottom: base.y + (h - S/2) * up.y >= minBottom  ->  h >= need + S/2
-      //    top:    h + S/2 <= halfView
-      // so S <= halfView - need, and then h = need + S/2.
-      const D = 34;
-      const fov = /** @type {any} */ (camera).fov ?? 45;
-      const halfView = Math.tan((fov * Math.PI) / 360) * D * 0.9;
-      const base = eye.clone().addScaledVector(look, D);
-      const minBottom = Math.max(0, floorHeight(base.x, base.z)) + 7.5;
-      const need = (minBottom - base.y) / Math.max(0.2, up.y);
-      S = Math.max(9, Math.min(SHAPE_SIZE, halfView - need));
-      const h = Math.max(0, need + S / 2);
-      center.copy(base).addScaledVector(up, h);
-      center.x = Math.max(-40, Math.min(40, center.x));
-      center.z = Math.max(-40, Math.min(40, center.z));
-      center.y = Math.min(32, center.y);
+    if (viewFrom) {
+      normal.set(viewFrom.x - center.x, 0, viewFrom.z - center.z);
+      if (normal.lengthSq() < 1) normal.set(0, 0, 1);
+      normal.normalize();
     }
+    const up = new T.Vector3(0, 1, 0);
+    const right = new T.Vector3().crossVectors(up, normal).normalize();
     this.shapeCenter = center;
+    this.shapeNormal = normal;
     const targets = [];
     for (let k = 0; k < N; k++) {
       const [u, v] = pts2d[k % pts2d.length];
@@ -250,6 +231,7 @@ export class FishSchool extends GrObject {
     }
     this.mode = "shape";
     this.shapeTimer = 0;
+    return { center, normal };
   }
 
   /** let go of the shape: burst outward and go back to flocking */
@@ -513,14 +495,18 @@ export class FishSchool extends GrObject {
     this.foodMesh.instanceMatrix.needsUpdate = true;
   }
 
-  lookFromLookAt() {
-    // look at the center of the school
+  /** average position of all the fish */
+  centerOfSchool() {
     let x = 0, y = 0, z = 0;
     for (let i = 0; i < this.N; i++) {
       x += this.pos[i * 3]; y += this.pos[i * 3 + 1]; z += this.pos[i * 3 + 2];
     }
-    x /= this.N; y /= this.N; z /= this.N;
-    return [x, y + 8, z + 26, x, y, z];
+    return new T.Vector3(x / this.N, y / this.N, z / this.N);
+  }
+
+  lookFromLookAt() {
+    const c = this.centerOfSchool();
+    return [c.x, c.y + 8, c.z + 26, c.x, c.y, c.z];
   }
 }
 

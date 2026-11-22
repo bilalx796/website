@@ -103,7 +103,7 @@ export const SHARK_ROUTE = [
 
 /** where the school forms drawn shapes: center of a vertical plane facing +z */
 /** @type {Vec3} */
-export const SHAPE_CENTER = [0, 15, -12];
+export const SHAPE_CENTER = [0, 19, -4];
 export const SHAPE_SIZE = 20;
 
 /** the fish school's home region (center, half-extent) */

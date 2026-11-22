@@ -40,6 +40,7 @@ import { CoralGardens } from "./objects/coral.js";
 import { KelpForest } from "./objects/kelp.js";
 import { Rocks } from "./objects/rocks.js";
 import { makeReefUI } from "./objects/reefUI.js";
+import { FreeCamera, relabelCameraMenu } from "./objects/freeCamera.js";
 
 const div = document.getElementById("div1");
 if (div) {
@@ -162,8 +163,12 @@ if (div) {
     // build and run the UI - only after all the objects exist
     // @ts-ignore       // we're sticking a new thing into the world
     world.ui = new WorldUI(world, -1, div);
-    makeReefUI({ world, school, shark, floorMesh: /** @type {T.Mesh} */ (floor.objects[0]), where: div });
-    world.go();
+    // free camera (arrow keys / WASD + mouse drag) instead of the orbit camera
+    const freeCam = new FreeCamera(world);
+    relabelCameraMenu();
+    makeReefUI({ world, school, shark, freeCam, floorMesh: /** @type {T.Mesh} */ (floor.objects[0]), where: div });
+    // the camera updates every frame, even while the world is paused
+    world.go({ predraw: () => freeCam.update() });
 
     // handy for debugging from the console
     // @ts-ignore

@@ -12,6 +12,7 @@
 import * as T from "three";
 import { reef } from "./reefState.js";
 import { pointsFromStrokes, PRESETS, textPoints } from "./shapes.js";
+import { switchToFreeCamera } from "./freeCamera.js";
 
 const CSS = `
 .reef-panel { width: 960px; max-width: 100%; box-sizing: border-box; margin-top: 8px; padding: 10px 12px;
@@ -41,10 +42,11 @@ const CSS = `
  * @param {import("CS559-Framework/GrWorld.js").GrWorld} params.world
  * @param {import("./fishSchool.js").FishSchool} params.school
  * @param {import("./shark.js").Shark} [params.shark]
+ * @param {import("./freeCamera.js").FreeCamera} [params.freeCam]
  * @param {T.Mesh} params.floorMesh - for picking where to drop food
  * @param {HTMLElement} params.where
  */
-export function makeReefUI({ world, school, shark, floorMesh, where }) {
+export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) {
   const style = document.createElement("style");
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -63,6 +65,7 @@ export function makeReefUI({ world, school, shark, floorMesh, where }) {
       <input type="text" maxlength="8" placeholder="type a word" data-input="word">
       <button data-act="spell">Spell it</button>
       <button data-act="release">Release</button>
+      <button data-act="view" title="fly the camera back to the shape">📷 View shape</button>
     </div>
     <div class="reef-row"><span class="label">Feed / scare</span>
       <button data-act="shark">🦈 Send the shark</button>
@@ -81,9 +84,22 @@ export function makeReefUI({ world, school, shark, floorMesh, where }) {
   const q = sel => /** @type {HTMLElement} */ (panel.querySelector(sel));
   const N = school.N;
 
-  // --- shapes
+  // --- shapes: form the shape, then glide the camera to a spot facing it squarely
+  /** @param {{center: T.Vector3, normal: T.Vector3}} shape */
+  const showShape = shape => {
+    if (!freeCam) return;
+    switchToFreeCamera(world);
+    const eye = shape.center.clone().addScaledVector(shape.normal, 31);
+    eye.y = shape.center.y + 1;
+    freeCam.flyTo(eye, shape.center, 2.2);
+  };
   const formFrom = pts => {
-    if (pts.length > 0) school.formShape(pts, world.active_camera);
+    if (pts.length === 0) return;
+    const from = freeCam ? freeCam.pos : world.active_camera.getWorldPosition(new T.Vector3());
+    showShape(school.formShape(pts, from));
+  };
+  q('[data-act="view"]').onclick = () => {
+    if (school.mode === "shape") showShape({ center: school.shapeCenter, normal: school.shapeNormal });
   };
   panel.querySelectorAll("[data-shape]").forEach(b => {
     /** @type {HTMLElement} */ (b).onclick = () => formFrom(PRESETS[/** @type {HTMLElement} */ (b).dataset.shape](N));
@@ -99,7 +115,23 @@ export function makeReefUI({ world, school, shark, floorMesh, where }) {
     e.stopPropagation(); // don't let typing drive the fly camera
   });
   q('[data-act="release"]').onclick = () => school.release();
-  q('[data-act="shark"]').onclick = () => shark?.hunt();
+  // send the shark, and frame the chase: look at the school from the side, so the
+  // shark comes in across the view and the fish scatter in front of you
+  q('[data-act="shark"]').onclick = () => {
+    if (!shark) return;
+    shark.hunt(true);
+    if (!freeCam) return;
+    switchToFreeCamera(world);
+    const c = school.centerOfSchool();
+    const d = c.clone().sub(shark.pos).setY(0);
+    if (d.lengthSq() < 1e-6) d.set(1, 0, 0);
+    d.normalize();
+    const side = new T.Vector3(-d.z, 0, d.x);
+    // stand on the side of the school that is closer to the town center
+    if (side.dot(c) > 0) side.negate();
+    const eye = c.clone().addScaledVector(side, 26).add(new T.Vector3(0, 5, 0));
+    freeCam.flyTo(eye, c, 1.8);
+  };
 
   // --- drawing pad
   const back = document.createElement("div");
