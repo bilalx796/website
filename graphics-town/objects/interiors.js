@@ -31,7 +31,7 @@
 import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { glowMaterial, rackTexture, codeScreenTexture } from "./materials.js";
-import { makePerson } from "./people.js";
+import { makePerson, setSeated } from "./people.js";
 import { reef } from "./reefState.js";
 
 /** keep only position/normal/uv so different geometries can be merged */
@@ -255,6 +255,8 @@ export function buildCafeteria(root, { Y, rng }) {
       p.position.copy(d.seat.seat);
       p.rotation.y = d.seat.face;
       tray.visible = true;
+      setSeated(p, 0.32);
+      tray.position.set(0, 0.53, 0.36); // on the table in front of them
     } else {
       p.position.set(-3.0 + rng() * 0.5, Y, lineZ);
     }
@@ -287,18 +289,20 @@ export function buildCafeteria(root, { Y, rng }) {
             d.state = "eating";
             d.timer = 6 + rng() * 10;
             p.rotation.y = d.seat.face;
+            setSeated(p, 0.32); // sit ON the chair (seat top is 0.32 up)
+            d.tray.position.set(0, 0.53, 0.36);
           } else {
             d.state = "queue";
           }
         }
       } else if (d.state === "eating") {
         d.timer -= dt;
-        // sit a little lower, nod while eating
-        p.position.y = Y - 0.08;
+        // nod while eating
         const head = p.getObjectByName("head");
         if (head) head.position.y = 0.6 - 0.025 * Math.max(0, Math.sin(t * 5 + p.id));
         if (d.timer <= 0) {
-          p.position.y = Y;
+          setSeated(p, null);
+          d.tray.position.set(0, 0.34, 0.16);
           d.seat.taken = false;
           d.tray.visible = false;
           d.path = [new T.Vector3(d.seat.lane, Y, d.seat.seat.z), new T.Vector3(d.seat.lane, Y, -1.2), new T.Vector3(-3.0, Y, -1.2), new T.Vector3(-3.0, Y, lineZ)];
@@ -642,6 +646,10 @@ export function buildComputerLab(root, { Y, rng }) {
   const gg = /** @type {CanvasRenderingContext2D} */ (gc.getContext("2d"));
   const graphTex = new T.CanvasTexture(gc);
   graphTex.colorSpace = T.SRGBColorSpace;
+  // we look at the INSIDE of the curved screen, which mirrors the texture:
+  // flip it horizontally so the text reads the right way
+  graphTex.wrapS = T.RepeatWrapping;
+  graphTex.repeat.x = -1;
   const series = [[], [], []];
   const drawGraphs = t => {
     gg.fillStyle = "#06131c";
@@ -720,8 +728,10 @@ export function buildComputerLab(root, { Y, rng }) {
   const shirts = [0xe85d4a, 0xf2c14e, 0x6bc46b];
   const engineers = desks.map(([dx, dz], i) => {
     const p = makePerson(shirts[i]);
-    p.position.set(dx, Y - 0.08, dz + 0.45);
+    // seated on the office chair (seat top 0.38 up), facing the desk
+    p.position.set(dx, Y, dz + 0.5);
     p.rotation.y = Math.PI;
+    setSeated(p, 0.38);
     root.add(p);
     return p;
   });
