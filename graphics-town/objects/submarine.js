@@ -23,6 +23,7 @@ import * as T from "three";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { ClosedCardinalSpline } from "./util/curves.js";
 import { reef } from "./reefState.js";
+import { texturePack } from "./materials.js";
 
 const R = 0.8; // hull radius
 const LEN = 5.2; // hull length
@@ -63,7 +64,9 @@ export class Submarine extends GrObject {
     const body = new T.Group(); // banking (roll) and bobbing happen here
     root.add(body);
 
-    const paint = new T.MeshStandardMaterial({ color: params.color ?? 0xf2b630, metalness: 0.35, roughness: 0.42 });
+    // riveted hull plates: CC0 normal map (ambientCG MetalPlates004) under the yellow paint
+    const plates = texturePack("MetalPlates004", 6, 2);
+    const paint = new T.MeshStandardMaterial({ color: params.color ?? 0xf2b630, metalness: 0.35, roughness: 0.42, normalMap: plates.normalMap });
     const trim = new T.MeshStandardMaterial({ color: 0x2b3440, metalness: 0.6, roughness: 0.35 });
     const stripeMat = new T.MeshStandardMaterial({ color: 0xc8402f, metalness: 0.3, roughness: 0.5 });
     const glass = new T.MeshStandardMaterial({

@@ -2,9 +2,8 @@
 /**
  * Free-roaming camera (replaces the framework's orbit / fly controls).
  *
- *   W / ↑  forward        S / ↓  back
- *   A / ←  left           D / →  right
- *   E / Space  up         Q / C  down
+ *   ↑  forward     ← →  turn left / right     ↓  look down     Space  straight up
+ *   W / S  forward / back     A / D  slide left / right     E up, Q / C down
  *   Shift  faster         mouse drag  look around      scroll wheel  move forward/back
  *
  * It is installed WITHOUT editing the framework: the framework's OrbitControls
@@ -57,6 +56,8 @@ export class FreeCamera {
 
     /** @type {Set<string>} */
     this.keys = new Set();
+    /** true while another controller (piloting / the game) owns the camera */
+    this.suspended = false;
     /** @type {null | {fromP: T.Vector3, toP: T.Vector3, fromYaw: number, toYaw: number, fromPitch: number, toPitch: number, t: number, dur: number}} */
     this.flight = null;
     this.lastTime = performance.now();
@@ -176,6 +177,13 @@ export class FreeCamera {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000);
     this.lastTime = now;
     if (!this.isFree()) return;
+    if (this.suspended) {
+      // someone else (the chase camera) is driving the camera; when we resume,
+      // we adopt wherever they left it
+      this.lastCam = null;
+      this.keys.clear();
+      return;
+    }
     const cam = this.world.active_camera;
 
     // something else moved the camera (LookAt menu, solo view...) - adopt it
@@ -196,13 +204,17 @@ export class FreeCamera {
     } else {
       const k = this.keys;
       const speed = (k.has("ShiftLeft") || k.has("ShiftRight") ? 30 : 11) * dt;
+      // arrow keys: ↑ forward, ← → turn, ↓ look down
+      if (k.has("ArrowLeft")) this.yaw += 1.7 * dt;
+      if (k.has("ArrowRight")) this.yaw -= 1.7 * dt;
+      if (k.has("ArrowDown")) this.pitch = Math.max(-1.45, this.pitch - 1.1 * dt);
       const fwd = this.forward();
       const right = new T.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
       const move = new T.Vector3();
       if (k.has("KeyW") || k.has("ArrowUp")) move.add(fwd);
-      if (k.has("KeyS") || k.has("ArrowDown")) move.sub(fwd);
-      if (k.has("KeyD") || k.has("ArrowRight")) move.add(right);
-      if (k.has("KeyA") || k.has("ArrowLeft")) move.sub(right);
+      if (k.has("KeyS")) move.sub(fwd);
+      if (k.has("KeyD")) move.add(right);
+      if (k.has("KeyA")) move.sub(right);
       if (k.has("KeyE") || k.has("Space")) move.y += 1;
       if (k.has("KeyQ") || k.has("KeyC")) move.y -= 1;
       if (move.lengthSq() > 0) this.pos.addScaledVector(move.normalize(), speed);
@@ -248,4 +260,24 @@ export function switchToFreeCamera(world) {
     }
   }
   world.setViewMode("Orbit Camera");
+}
+
+/**
+ * ride an object in first person ("Drive Object"), going through the WorldUI
+ * Drive menu so the panel shows what is happening
+ * @param {import("CS559-Framework/GrWorld.js").GrWorld} world @param {string} name
+ */
+export function rideViaUI(world, name) {
+  for (const sel of Array.from(document.querySelectorAll(".lil-gui select"))) {
+    const s = /** @type {HTMLSelectElement} */ (sel);
+    const idx = Array.from(s.options).findIndex(o => o.textContent === name);
+    // the Drive menu lists only rideable objects (the LookAt menu lists everything)
+    if (idx >= 0 && s.options.length < 15) {
+      s.selectedIndex = idx;
+      s.dispatchEvent(new Event("change"));
+      return;
+    }
+  }
+  world.setActiveObject(name);
+  world.setViewMode("Drive Object");
 }

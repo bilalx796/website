@@ -22,6 +22,10 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { ClosedCardinalSpline } from "./util/curves.js";
 import { addSkinWeights, cleanGeo, paint, ramp } from "./util/skin.js";
+import { pilotStep } from "./pilot.js";
+
+/** how the manta handles when you pilot it */
+const MANTA_PILOT = { cruise: 5.5, fast: 5.5, slow: 5.5, sprint: 9.5, turnRate: 1.5 };
 
 const W = 3.2; // half wingspan
 
@@ -145,6 +149,17 @@ export class MantaRay extends GrObject {
     this.speed = 3.2;
     this.time = 0;
     this.bank = 0;
+    // piloting state (see pilot.js): pos / heading are kept up to date always
+    this.pos = new T.Vector3();
+    this.heading = new T.Vector3(0, 0, 1);
+    this.ps = { pos: this.pos, heading: this.heading, speed: 3.2, bank: 0 };
+    this.piloted = false;
+    this.wasPiloted = false;
+    /** @type {import("./pilot.js").PilotInput | null} */
+    this.input = null;
+    this.returnT = 1;
+    this.returnFrom = new T.Vector3();
+    this.chaseDistance = 11;
     this.place(0);
   }
 
@@ -163,8 +178,41 @@ export class MantaRay extends GrObject {
     this.wing.ro.rotation.z = -A * 1.25 * Math.sin(w - 0.9);
     this.wing.tb.rotation.y = 0.2 * Math.sin(this.time * 0.8);
     this.glider.position.y = -0.25 * Math.sin(w);
+
+    if (this.piloted && this.input) {
+      // YOU are steering (see pilot.js)
+      if (!this.wasPiloted) {
+        this.wasPiloted = true;
+        this.ps.speed = this.speed;
+      }
+      pilotStep(this.ps, this.input, dt, MANTA_PILOT);
+      this.root.position.copy(this.pos);
+      this.root.lookAt(this.pos.clone().add(this.heading));
+      this.glider.rotation.z = this.ps.bank ?? 0;
+      return;
+    }
+    if (this.wasPiloted) {
+      // let go: glide back onto the route from the nearest point on it
+      this.wasPiloted = false;
+      let best = 0, bestD = Infinity;
+      for (let d = 0; d < this.route.length; d += 1) {
+        const q = this.route.atDistance(d).pos;
+        const dd = Math.hypot(q[0] - this.pos.x, q[1] - this.pos.y, q[2] - this.pos.z);
+        if (dd < bestD) { bestD = dd; best = d; }
+      }
+      this.dist = best + 6;
+      this.returnFrom = this.pos.clone();
+      this.returnT = 0;
+    }
     this.dist += this.speed * dt;
     this.place(dt);
+    if (this.returnT < 1) {
+      // blend from where you left it to the route over a few seconds
+      this.returnT = Math.min(1, this.returnT + dt / 3);
+      const u = this.returnT * this.returnT * (3 - 2 * this.returnT);
+      this.root.position.lerpVectors(this.returnFrom, this.root.position, u);
+    }
+    this.pos.copy(this.root.position);
   }
 
   /** @param {number} dt */
@@ -172,6 +220,8 @@ export class MantaRay extends GrObject {
     const { pos, tan } = this.route.atDistance(this.dist);
     this.root.position.set(pos[0], pos[1], pos[2]);
     this.root.lookAt(pos[0] + tan[0], pos[1] + tan[1], pos[2] + tan[2]);
+    this.pos.set(pos[0], pos[1], pos[2]);
+    this.heading.set(tan[0], tan[1], tan[2]);
     // bank into turns
     const ahead = this.route.atDistance(this.dist + 3).tan;
     const turn = Math.atan2(tan[0] * ahead[2] - tan[2] * ahead[0], tan[0] * ahead[0] + tan[2] * ahead[2]);

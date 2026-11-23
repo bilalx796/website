@@ -12,22 +12,26 @@
 import * as T from "three";
 import { reef } from "./reefState.js";
 import { pointsFromStrokes, PRESETS, textPoints } from "./shapes.js";
-import { switchToFreeCamera } from "./freeCamera.js";
+import { switchToFreeCamera, rideViaUI } from "./freeCamera.js";
 
 const CSS = `
-.reef-panel { width: 960px; max-width: 100%; box-sizing: border-box; margin-top: 8px; padding: 10px 12px;
-  background: #0d2a3a; color: #e6f6fb; border-radius: 8px; font: 14px/1.4 system-ui, sans-serif; }
-.reef-panel h3 { margin: 0 0 6px; font-size: 15px; color: #9fe3f5; }
-.reef-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; }
-.reef-row .label { min-width: 110px; color: #9cc3d0; }
+.reef-panel { width: 100%; box-sizing: border-box; padding: 10px 12px;
+  background: #0d2a3a; color: #e6f6fb; border-radius: 8px; font: 13px/1.35 system-ui, sans-serif; }
+.reef-panel h3 { margin: 0 0 6px; font-size: 14px; color: #9fe3f5; }
+.reef-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin: 2px 0 7px; }
+.reef-row .label { width: 100%; color: #9cc3d0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
 .reef-panel button { background: #1d4f66; color: #fff; border: 1px solid #3a7f99; border-radius: 6px;
-  padding: 5px 10px; cursor: pointer; font: inherit; }
+  padding: 4px 8px; cursor: pointer; font: inherit; }
 .reef-panel button:hover { background: #276985; }
 .reef-panel button.on { background: #f2b630; color: #1a1a1a; border-color: #f2b630; }
 .reef-panel button.big { background: #f2b630; color: #1a1a1a; border-color: #f2b630; font-weight: 600; }
 .reef-panel input[type=text] { background: #08202c; color: #fff; border: 1px solid #3a7f99; border-radius: 6px;
-  padding: 5px 8px; width: 120px; font: inherit; }
-.reef-status { color: #9cc3d0; font-size: 13px; }
+  padding: 4px 8px; width: 110px; font: inherit; }
+.reef-status { color: #9cc3d0; font-size: 12px; }
+.reef-controls { margin: 0 0 7px; padding: 6px 10px; background: #08202c; border-radius: 6px; font-size: 12px; line-height: 1.6; }
+.reef-controls h3 { font-size: 13px; }
+.reef-controls kbd { display: inline-block; min-width: 16px; padding: 0 4px; border: 1px solid #3a7f99; border-bottom-width: 2px;
+  border-radius: 4px; background: #12384a; color: #fff; font: 11px system-ui, sans-serif; text-align: center; line-height: 16px; }
 .reef-pad-back { position: fixed; inset: 0; background: rgba(0,10,20,0.55); display: none;
   align-items: center; justify-content: center; z-index: 1000; }
 .reef-pad { background: #0d2a3a; padding: 14px; border-radius: 10px; color: #e6f6fb;
@@ -43,10 +47,13 @@ const CSS = `
  * @param {import("./fishSchool.js").FishSchool} params.school
  * @param {import("./shark.js").Shark} [params.shark]
  * @param {import("./freeCamera.js").FreeCamera} [params.freeCam]
+ * @param {import("./pilot.js").PilotController} [params.pilot]
+ * @param {import("./game.js").SharkFrenzy} [params.game]
+ * @param {import("./manta.js").MantaRay} [params.manta]
  * @param {T.Mesh} params.floorMesh - for picking where to drop food
  * @param {HTMLElement} params.where
  */
-export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) {
+export function makeReefUI({ world, school, shark, manta, freeCam, pilot, game, floorMesh, where }) {
   const style = document.createElement("style");
   style.textContent = CSS;
   document.head.appendChild(style);
@@ -55,6 +62,20 @@ export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) 
   panel.className = "reef-panel";
   panel.innerHTML = `
     <h3>Coralhaven controls</h3>
+    <div class="reef-row"><span class="label">Play</span>
+      <button class="big" data-act="frenzy">🩸 Shark Frenzy (30s)</button>
+      <button class="big" data-act="walk">🚶 Walk (first person)</button>
+      <button data-act="drive-shark">🦈 Drive the shark</button>
+      <button data-act="drive-manta">🪽 Drive the manta</button>
+      <button data-act="stop-drive">⏹ Stop</button>
+    </div>
+    <div class="reef-controls">
+      <h3>Controls</h3>
+      <div><b>Move:</b> arrows · <kbd>Space</kbd> up · <kbd>Q</kbd> down · drag to look</div>
+      <div><b>Shark / manta:</b> <kbd>←</kbd><kbd>→</kbd> turn · <kbd>↑</kbd><kbd>↓</kbd> up / down · <kbd>Shift</kbd> sprint</div>
+      <div><b>Walk:</b> arrows · <kbd>Space</kbd> jump · drag to look</div>
+      <div><kbd>Esc</kbd> stops · zoom with the bar on the view</div>
+    </div>
     <div class="reef-row"><span class="label">Fish school</span>
       <button class="big" data-act="draw">✏️ Draw a shape</button>
       <button data-shape="heart">Heart</button>
@@ -62,22 +83,22 @@ export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) 
       <button data-shape="fish">Fish</button>
       <button data-shape="wave">Wave</button>
       <button data-shape="cs559">559</button>
-      <input type="text" maxlength="8" placeholder="type a word" data-input="word">
+      <input type="text" maxlength="4" placeholder="word (4 max)" data-input="word">
       <button data-act="spell">Spell it</button>
       <button data-act="release">Release</button>
       <button data-act="view" title="fly the camera back to the shape">📷 View shape</button>
     </div>
-    <div class="reef-row"><span class="label">Feed / scare</span>
-      <button data-act="shark">🦈 Send the shark</button>
+    <div class="reef-row"><span class="label">Feeding</span>
       <button data-act="feed">🍤 Feed the fish</button>
-      <span class="reef-status" data-out="feed">turn on, then click the sea floor to drop food</span>
+      <span class="reef-status" data-out="feed">turn on, then click the sea floor</span>
     </div>
     <div class="reef-row"><span class="label">Time of day</span>
       <button data-time="cycle" class="on">Auto cycle</button>
       <button data-time="day">Day</button>
       <button data-time="night">Night</button>
       <span class="reef-status" data-out="clock"></span>
-    </div>`;
+    </div>
+`;
   where.appendChild(panel);
 
   /** @param {string} sel */
@@ -93,21 +114,26 @@ export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) 
     eye.y = shape.center.y + 1;
     freeCam.flyTo(eye, shape.center, 2.2);
   };
-  const formFrom = pts => {
+  /** @param {Array<[number, number]>} pts @param {{size?: number, orbit?: number}} [opts] */
+  const formFrom = (pts, opts) => {
     if (pts.length === 0) return;
     const from = freeCam ? freeCam.pos : world.active_camera.getWorldPosition(new T.Vector3());
-    showShape(school.formShape(pts, from));
+    showShape(school.formShape(pts, from, opts));
   };
+  // words are wide and thin: make them bigger and hold the fish tighter
+  const TEXT = { size: 34, orbit: 0.1 };
   q('[data-act="view"]').onclick = () => {
     if (school.mode === "shape") showShape({ center: school.shapeCenter, normal: school.shapeNormal });
   };
   panel.querySelectorAll("[data-shape]").forEach(b => {
-    /** @type {HTMLElement} */ (b).onclick = () => formFrom(PRESETS[/** @type {HTMLElement} */ (b).dataset.shape](N));
+    const name = /** @type {HTMLElement} */ (b).dataset.shape;
+    /** @type {HTMLElement} */ (b).onclick = () => formFrom(PRESETS[name](N), name === "cs559" ? { size: 26, orbit: 0.12 } : undefined);
   });
   const word = /** @type {HTMLInputElement} */ (q('[data-input="word"]'));
   const spell = () => {
     const text = word.value.trim();
-    if (text) formFrom(textPoints(text, N));
+    // wider for longer words, so a single letter isn't blown up to full size
+    if (text) formFrom(textPoints(text.slice(0, 4), N), { ...TEXT, size: 12 + 5.5 * Math.min(4, text.length) });
   };
   q('[data-act="spell"]').onclick = spell;
   word.addEventListener("keydown", e => {
@@ -115,22 +141,28 @@ export function makeReefUI({ world, school, shark, freeCam, floorMesh, where }) 
     e.stopPropagation(); // don't let typing drive the fly camera
   });
   q('[data-act="release"]').onclick = () => school.release();
-  // send the shark, and frame the chase: look at the school from the side, so the
-  // shark comes in across the view and the fish scatter in front of you
-  q('[data-act="shark"]').onclick = () => {
-    if (!shark) return;
-    shark.hunt(true);
-    if (!freeCam) return;
-    switchToFreeCamera(world);
-    const c = school.centerOfSchool();
-    const d = c.clone().sub(shark.pos).setY(0);
-    if (d.lengthSq() < 1e-6) d.set(1, 0, 0);
-    d.normalize();
-    const side = new T.Vector3(-d.z, 0, d.x);
-    // stand on the side of the school that is closer to the town center
-    if (side.dot(c) > 0) side.negate();
-    const eye = c.clone().addScaledVector(side, 26).add(new T.Vector3(0, 5, 0));
-    freeCam.flyTo(eye, c, 1.8);
+
+  // --- ride / play
+  q('[data-act="frenzy"]').onclick = () => game?.start();
+  q('[data-act="walk"]').onclick = () => {
+    if (game?.running) return;
+    pilot?.stopChase();
+    rideViaUI(world, "Explorer (you)");
+  };
+  q('[data-act="drive-shark"]').onclick = () => {
+    if (game?.running) return;
+    if (pilot && shark) pilot.startChase(shark);
+  };
+  q('[data-act="drive-manta"]').onclick = () => {
+    if (game?.running) return;
+    if (pilot && manta) pilot.startChase(manta);
+  };
+  q('[data-act="stop-drive"]').onclick = () => {
+    if (game?.running) game.end(true);
+    else {
+      pilot?.stopChase();
+      switchToFreeCamera(world);
+    }
   };
 
   // --- drawing pad

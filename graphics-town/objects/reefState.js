@@ -22,6 +22,8 @@ export const reef = {
   mode: "cycle",
   /** real seconds (at speed 1) for one full day on the reef clock */
   dayLength: 150,
+  /** 0..1: how red / bloodthirsty the water is (Shark Frenzy game) */
+  blood: 0,
   /** water current direction/strength (changes slowly) */
   current: [0.6, 0.2],
   /** objects that other objects need to find (filled in by main) */

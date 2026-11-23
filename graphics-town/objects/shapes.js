@@ -74,9 +74,7 @@ export function pointsFromStrokes(strokes, count) {
  * @param {number} count
  * @returns {Pts}
  */
-export function pointsFromDrawing(draw, count) {
-  const W = 400;
-  const H = 300;
+export function pointsFromDrawing(draw, count, W = 400, H = 300) {
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -184,15 +182,17 @@ export const PRESETS = {
  * @param {string} text @param {number} n
  */
 export function textPoints(text, n) {
+  // a wide canvas and a very heavy font, so the letters have thick strokes
   return pointsFromDrawing((g, W, H) => {
-    let size = 150;
-    g.font = `bold ${size}px sans-serif`;
-    while (g.measureText(text).width > W - 20 && size > 20) {
+    let size = 220;
+    const font = sz => `900 ${sz}px "Arial Black", "Helvetica Neue", Arial, sans-serif`;
+    g.font = font(size);
+    while (g.measureText(text).width > W - 20 && size > 30) {
       size -= 6;
-      g.font = `bold ${size}px sans-serif`;
+      g.font = font(size);
     }
     g.textAlign = "center";
     g.textBaseline = "middle";
     g.fillText(text, W / 2, H / 2);
-  }, n);
+  }, n, 1000, 280);
 }

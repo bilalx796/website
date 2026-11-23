@@ -61,6 +61,8 @@ const wiggle = Fn(([p, phase, freq]) => {
 
 // a school of yellow and silver reef fish - bright so they read against the blue water
 const FISH_COLORS = [0xffd23f, 0xffc42e, 0xffe27a, 0xf4f8fa, 0xe2eef4, 0xffb627];
+// some dark fish too: the contrast makes shapes (and the holes in letters) easier to read
+const DARK_FISH = [0x1c2a3c, 0x2b2f42, 0x22384a];
 
 export class FishSchool extends GrObject {
   /**
@@ -69,7 +71,7 @@ export class FishSchool extends GrObject {
    * @param {string} [params.name]
    */
   constructor(params = {}) {
-    const N = params.count ?? 400;
+    const N = params.count ?? 460;
     const root = new T.Group();
     const rng = makeRng(2026);
 
@@ -92,7 +94,7 @@ export class FishSchool extends GrObject {
       dir[i * 3 + 2] = Math.sin(a);
       phase[i] = rng() * Math.PI * 2;
       scale[i] = 0.45 + rng() * 0.2;
-      c.set(FISH_COLORS[Math.floor(rng() * FISH_COLORS.length)]);
+      c.set(rng() < 0.25 ? DARK_FISH[Math.floor(rng() * DARK_FISH.length)] : FISH_COLORS[Math.floor(rng() * FISH_COLORS.length)]);
       c.offsetHSL(0, 0, (rng() - 0.5) * 0.08);
       color.set([c.r, c.g, c.b], i * 3);
     }
@@ -107,8 +109,11 @@ export class FishSchool extends GrObject {
     const iPos = instancedDynamicBufferAttribute(posAttr, "vec3");
     const iDir = instancedDynamicBufferAttribute(dirAttr, "vec3");
     const iPhase = instancedBufferAttribute(new T.InstancedBufferAttribute(phase, 1), "float");
+    const baseScale = scale.slice();
+    baseScale[0] = 0.62; // (the lead fish's own size, for when it respawns)
     const scaleAttr = new T.InstancedBufferAttribute(scale, 1);
-    const iScale = instancedBufferAttribute(scaleAttr, "float");
+    scaleAttr.setUsage(T.DynamicDrawUsage);
+    const iScale = instancedDynamicBufferAttribute(scaleAttr, "float");
     const iColor = instancedBufferAttribute(new T.InstancedBufferAttribute(color, 3), "vec3");
 
     const uGlow = uniform(0.0); // extra glow while holding a shape
@@ -144,6 +149,18 @@ export class FishSchool extends GrObject {
     super(params.name ?? "Fish School", root);
 
     this.N = N;
+    /** 1 = alive, 0 = eaten (Shark Frenzy game) */
+    this.alive = new Uint8Array(N).fill(1);
+    this.scale = scale;
+    this.baseScale = baseScale;
+    this.scaleAttr = scaleAttr;
+    /** how far away fish notice the shark, and how hard they flee */
+    this.fearRadius = 9;
+    this.fearStrength = 26;
+    /** how much faster than normal a scared fish can swim */
+    this.panicBoost = 1.35;
+    /** how strongly fish are pulled back into their home region */
+    this.homePull = 1.5;
     this.pos = pos;
     this.vel = vel;
     this.dir = dir;
@@ -179,9 +196,11 @@ export class FishSchool extends GrObject {
    *   point horizontally, so the camera doesn't have to fly far to see it
    * @returns {{center: T.Vector3, normal: T.Vector3}} where the shape is and which way it faces
    */
-  formShape(pts2d, viewFrom) {
+  formShape(pts2d, viewFrom, opts = {}) {
     const N = this.N;
-    const S = SHAPE_SIZE;
+    // size: how wide (or tall) the shape is; orbit: how much each fish circles its spot
+    const S = opts.size ?? SHAPE_SIZE;
+    this.shapeOrbit = opts.orbit ?? 0.35;
     // the shape always forms in the open water above the town, high enough that
     // it clears every roof; it is a vertical plane facing `normal`
     const center = new T.Vector3(...SHAPE_CENTER);
@@ -195,6 +214,8 @@ export class FishSchool extends GrObject {
     const right = new T.Vector3().crossVectors(up, normal).normalize();
     this.shapeCenter = center;
     this.shapeNormal = normal;
+    this.shapeRight = right;
+    this.shapeSize = S;
     const targets = [];
     for (let k = 0; k < N; k++) {
       const [u, v] = pts2d[k % pts2d.length];
@@ -310,6 +331,7 @@ export class FishSchool extends GrObject {
     const grid = this.grid;
     grid.clear();
     for (let i = 0; i < N; i++) {
+      if (!this.alive[i]) continue;
       const key = this.cellKey(Math.floor(pos[i * 3] / cs), Math.floor(pos[i * 3 + 1] / cs), Math.floor(pos[i * 3 + 2] / cs));
       let cell = grid.get(key);
       if (!cell) grid.set(key, (cell = []));
@@ -326,6 +348,7 @@ export class FishSchool extends GrObject {
     const maxSpeed = 6;
 
     for (let i = 0; i < N; i++) {
+      if (!this.alive[i]) continue;
       const ix = i * 3;
       const px = pos[ix], py = pos[ix + 1], pz = pos[ix + 2];
       const vx = vel[ix], vy = vel[ix + 1], vz = vel[ix + 2];
@@ -360,6 +383,7 @@ export class FishSchool extends GrObject {
       }
 
       const seeking = shapeMode && panic[i] <= 0;
+      let holding = false;
       const wSep = seeking ? 2.5 : 6;
       const wAli = seeking ? 0.1 : 1.1;
       const wCoh = seeking ? 0 : 0.7;
@@ -375,12 +399,13 @@ export class FishSchool extends GrObject {
 
       if (seeking) {
         // --- seek my spot on the shape, circling it slowly once there
-        const orbit = 0.35;
+        const orbit = this.shapeOrbit;
         const tx = target[ix] + orbit * Math.cos(t * 1.3 + this.phase[i]);
         const ty = target[ix + 1] + orbit * Math.sin(t * 1.3 + this.phase[i]);
         const tz = target[ix + 2];
         const dx = tx - px, dy = ty - py, dz = tz - pz;
         const d = Math.hypot(dx, dy, dz) || 1e-6;
+        holding = d < 1.2;
         const want = Math.min(maxSpeed, d * 1.6 + 0.4);
         ax += ((dx / d) * want - vx) * 3.2;
         ay += ((dy / d) * want - vy) * 3.2;
@@ -388,9 +413,9 @@ export class FishSchool extends GrObject {
       } else {
         // --- stay in the school's home region
         const bx = px - cxS, by = py - cyS, bz = pz - czS;
-        if (Math.abs(bx) > exS) ax -= Math.sign(bx) * (Math.abs(bx) - exS) * 1.5;
-        if (Math.abs(by) > eyS) ay -= Math.sign(by) * (Math.abs(by) - eyS) * 1.5;
-        if (Math.abs(bz) > ezS) az -= Math.sign(bz) * (Math.abs(bz) - ezS) * 1.5;
+        if (Math.abs(bx) > exS) ax -= Math.sign(bx) * (Math.abs(bx) - exS) * this.homePull;
+        if (Math.abs(by) > eyS) ay -= Math.sign(by) * (Math.abs(by) - eyS) * this.homePull;
+        if (Math.abs(bz) > ezS) az -= Math.sign(bz) * (Math.abs(bz) - ezS) * this.homePull;
 
         // --- wander (smooth noise) and the current
         ax += noise3(px * 0.06, py * 0.06, t * 0.15 + 3) * 2.2 + reef.current[0] * 0.5;
@@ -417,9 +442,9 @@ export class FishSchool extends GrObject {
       if (sharkPos) {
         const dx = px - sharkPos.x, dy = py - sharkPos.y, dz = pz - sharkPos.z;
         const d = Math.hypot(dx, dy, dz) || 1e-6;
-        const fearR = 9;
+        const fearR = this.fearRadius;
         if (d < fearR) {
-          const k = ((fearR - d) / fearR) * 26;
+          const k = ((fearR - d) / fearR) * this.fearStrength;
           ax += (dx / d) * k; ay += (dy / d) * k * 0.6; az += (dz / d) * k;
           panic[i] = 1.6;
         }
@@ -454,7 +479,7 @@ export class FishSchool extends GrObject {
       nvy *= 0.98;
       let sp = Math.hypot(nvx, nvy, nvz) || 1e-6;
       const minSpeed = seeking ? 0.2 : 1.8;
-      const topSpeed = panic[i] > 0 ? maxSpeed * 1.5 : maxSpeed;
+      const topSpeed = panic[i] > 0 ? maxSpeed * this.panicBoost : maxSpeed;
       const clamped = Math.min(topSpeed, Math.max(minSpeed, sp));
       nvx *= clamped / sp; nvy *= clamped / sp; nvz *= clamped / sp;
       sp = clamped;
@@ -469,6 +494,12 @@ export class FishSchool extends GrObject {
       let dy = dir[ix + 1] + (nvy / sp - dir[ix + 1]) * k;
       let dz = dir[ix + 2] + (nvz / sp - dir[ix + 2]) * k;
       dy = Math.max(-0.6, Math.min(0.6, dy));
+      if (holding && this.shapeRight) {
+        // once in place, every fish faces the same way, so the shape reads cleanly
+        const r = this.shapeRight;
+        const kk = Math.min(1, dt * 4);
+        dx += (r.x - dx) * kk; dy += (r.y - dy) * kk; dz += (r.z - dz) * kk;
+      }
       const dl = Math.hypot(dx, dy, dz) || 1;
       dir[ix] = dx / dl; dir[ix + 1] = dy / dl; dir[ix + 2] = dz / dl;
     }
@@ -495,13 +526,46 @@ export class FishSchool extends GrObject {
     this.foodMesh.instanceMatrix.needsUpdate = true;
   }
 
-  /** average position of all the fish */
+  /** average position of the (living) fish */
   centerOfSchool() {
-    let x = 0, y = 0, z = 0;
+    let x = 0, y = 0, z = 0, n = 0;
     for (let i = 0; i < this.N; i++) {
+      if (!this.alive[i]) continue;
       x += this.pos[i * 3]; y += this.pos[i * 3 + 1]; z += this.pos[i * 3 + 2];
+      n++;
     }
-    return new T.Vector3(x / this.N, y / this.N, z / this.N);
+    n = Math.max(1, n);
+    return new T.Vector3(x / n, y / n, z / n);
+  }
+
+  /** a fish gets eaten (Shark Frenzy): it disappears (scale 0) and stops simulating */
+  kill(i) {
+    if (!this.alive[i]) return;
+    this.alive[i] = 0;
+    this.scale[i] = 0;
+    this.scaleAttr.needsUpdate = true;
+  }
+
+  /** bring every eaten fish back, at the edge of the school's home region */
+  reviveAll() {
+    for (let i = 0; i < this.N; i++) {
+      if (this.alive[i]) continue;
+      this.alive[i] = 1;
+      this.scale[i] = i === 0 ? 0 : this.baseScale[i];
+      const a = this.rng() * Math.PI * 2;
+      this.pos[i * 3] = SCHOOL_CENTER[0] + Math.cos(a) * SCHOOL_EXTENT[0] * 0.9;
+      this.pos[i * 3 + 1] = SCHOOL_CENTER[1] + (this.rng() - 0.5) * 4;
+      this.pos[i * 3 + 2] = SCHOOL_CENTER[2] + Math.sin(a) * SCHOOL_EXTENT[2] * 0.9;
+      this.panic[i] = 0;
+    }
+    this.scaleAttr.needsUpdate = true;
+  }
+
+  /** count of fish still alive */
+  aliveCount() {
+    let n = 0;
+    for (let i = 0; i < this.N; i++) n += this.alive[i];
+    return n;
   }
 
   lookFromLookAt() {
@@ -537,6 +601,7 @@ export class LeadFish extends GrObject {
   }
 
   update0() {
+    this.root.visible = this.school.alive[0] === 1;
     const p = this.school.pos;
     const d = this.school.dir;
     this.root.position.set(p[0], p[1], p[2]);

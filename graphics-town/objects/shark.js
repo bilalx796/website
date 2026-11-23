@@ -37,6 +37,10 @@ import { ClosedCardinalSpline } from "./util/curves.js";
 import { floorHeight } from "./terrain.js";
 import { reef } from "./reefState.js";
 import { addSkinWeights } from "./util/skin.js";
+import { pilotStep } from "./pilot.js";
+
+/** how the shark handles when you pilot it */
+const SHARK_PILOT = { cruise: 7.5, fast: 7.5, slow: 7.5, sprint: 13.5, turnRate: 2.4 };
 
 const Z_TAIL = -3.3; // where the body ends (the tail fin attaches here)
 const Z_NOSE = 2.7;
@@ -257,6 +261,13 @@ export class Shark extends GrObject {
     this.huntEvery = 25;
     this.huntLimit = 9;
     this.time = 0;
+    this.bank = 0;
+    /** set by the PilotController when you are steering */
+    this.piloted = false;
+    this.wasPiloted = false;
+    /** @type {import("./pilot.js").PilotInput | null} */
+    this.input = null;
+    this.chaseDistance = 9;
     this._t = new T.Vector3();
   }
 
@@ -283,7 +294,23 @@ export class Shark extends GrObject {
     const dt = Math.min(delta, 100) / 1000;
     this.time += dt;
     this.timer += dt;
+    this.lastSwimDt = dt;
     const school = reef.objects.school;
+
+    if (this.piloted && this.input) {
+      // YOU are steering (see pilot.js)
+      pilotStep(this, this.input, dt, SHARK_PILOT);
+      this.wasPiloted = true;
+      this.placeAndSwim();
+      return;
+    }
+    if (this.wasPiloted) {
+      // let go: swim back to the patrol loop
+      this.wasPiloted = false;
+      this.bank = 0;
+      this.state = "return";
+      this.timer = 0;
+    }
 
     /** @type {T.Vector3} */
     let target;
@@ -335,16 +362,29 @@ export class Shark extends GrObject {
     const fh = floorHeight(this.pos.x, this.pos.z) + 2;
     if (this.pos.y < fh) this.pos.y = fh;
 
+    this.placeAndSwim();
+  }
+
+  /** put the shark at pos facing heading (leaning into turns), and animate the swim */
+  placeAndSwim() {
     this.root.position.copy(this.pos);
     this.root.lookAt(this.pos.clone().add(this.heading));
+    this.root.rotateZ(this.bank);
 
     // swimming: a wave travels from head to tail, growing toward the tail,
     // faster (and bigger) when it is swimming fast
-    const freq = 2.0 + this.speed * 0.45;
-    const big = 0.8 + this.speed * 0.05;
-    const amp = [0.025, 0.05, 0.08, 0.12, 0.16, 0.24];
+    // The phase is ACCUMULATED (phase += frequency * dt) rather than computed as
+    // time * frequency: otherwise every change in speed makes the phase jump and
+    // the tail flickers. Frequency and amplitude are capped so a fast shark
+    // beats its tail harder, not unrealistically fast.
+    const dt = this.lastSwimDt ?? 0;
+    const freq = 2.2 + Math.min(this.speed, 11) * 0.22;
+    this.swimPhase = (this.swimPhase ?? 0) + freq * dt;
+    const wantBig = 0.85 + Math.min(this.speed, 11) * 0.025;
+    this.swimBig = (this.swimBig ?? wantBig) + (wantBig - (this.swimBig ?? wantBig)) * Math.min(1, dt * 2);
+    const amp = [0.02, 0.045, 0.075, 0.11, 0.15, 0.22];
     this.bones.forEach((b, k) => {
-      b.rotation.y = big * amp[k] * Math.sin(this.time * freq - k * 0.85);
+      b.rotation.y = this.swimBig * amp[k] * Math.sin(this.swimPhase - k * 0.85);
     });
   }
 

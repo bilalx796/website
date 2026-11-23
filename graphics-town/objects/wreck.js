@@ -19,7 +19,7 @@ import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight } from "./terrain.js";
-import { woodTexture, glowMaterial } from "./materials.js";
+import { texturePack, glowMaterial } from "./materials.js";
 import { reef } from "./reefState.js";
 import { makeRng, noise3 } from "./util/noise.js";
 
@@ -74,9 +74,10 @@ export class Shipwreck extends GrObject {
     root.add(ship);
     const rng = makeRng(1717);
 
-    const wood = woodTexture();
-    const hullMat = new T.MeshStandardMaterial({ map: wood, roughness: 0.9, side: T.DoubleSide, color: 0xf0e2c8 });
-    const darkWood = new T.MeshStandardMaterial({ map: wood, roughness: 0.95, color: 0xc8b496 });
+    // CC0 wood planks (ambientCG Planks037A)
+    const { map: wood, normalMap: woodNormal } = texturePack("Planks037A", 2, 1);
+    const hullMat = new T.MeshStandardMaterial({ map: wood, normalMap: woodNormal, roughness: 0.9, side: T.DoubleSide, color: 0xf0e4cc });
+    const darkWood = new T.MeshStandardMaterial({ map: wood, normalMap: woodNormal, roughness: 0.95, color: 0xcdbb9e });
     const iron = new T.MeshStandardMaterial({ color: 0x3a3f3c, metalness: 0.7, roughness: 0.6 });
     const rust = new T.MeshStandardMaterial({ color: 0x7a4a2a, metalness: 0.4, roughness: 0.8 });
 

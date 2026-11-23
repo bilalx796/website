@@ -20,6 +20,7 @@ import { updateGlowMaterials } from "./materials.js";
 const DAY_WATER = new T.Color(0x1680a3);
 const DUSK_WATER = new T.Color(0x0c3d68);
 const NIGHT_WATER = new T.Color(0x020a18);
+const BLOOD_WATER = new T.Color(0x4a0508);
 
 /** a vertical gradient texture: bright at the top, transparent at the bottom */
 function makeRayTexture() {
@@ -194,8 +195,10 @@ export class ReefEnvironment extends GrObject {
     // day -> dusk -> night water color
     if (d > 0.5) this.waterColor.copy(DUSK_WATER).lerp(DAY_WATER, (d - 0.5) * 2);
     else this.waterColor.copy(NIGHT_WATER).lerp(DUSK_WATER, d * 2);
+    // Shark Frenzy: the water turns blood red
+    if (reef.blood > 0) this.waterColor.lerp(BLOOD_WATER, reef.blood * 0.75);
     this.fog.color.copy(this.waterColor);
-    this.fog.density = 0.015 + 0.01 * (1 - d);
+    this.fog.density = 0.015 + 0.01 * (1 - d) + 0.012 * reef.blood;
 
     this.hemi.intensity = 0.12 + 1.15 * d;
     this.hemi.color.setRGB(0.55 + 0.1 * d, 0.75 + 0.18 * d, 1.0);

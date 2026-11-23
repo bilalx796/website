@@ -228,3 +228,216 @@ export function glowMaterial(color, day = 0.15, night = 1.8) {
 export function updateGlowMaterials() {
   for (const g of glowList) g.mat.emissiveIntensity = g.day + (g.night - g.day) * reef.night;
 }
+
+// ---------------------------------------------------------------------------
+// Textures for the hubs and corridors (all painted in code)
+// ---------------------------------------------------------------------------
+
+const texCache = {};
+/** @param {string} key @param {() => T.Texture} make */
+function cached(key, make) {
+  if (!texCache[key]) texCache[key] = make();
+  return texCache[key];
+}
+
+/** geodesic glass: faint glass with bright triangular panel frames */
+export function glassPanelTexture() {
+  return cached("glassPanel", () => {
+    const W = 512, H = 256;
+    const { c, g } = canvas(W, H);
+    g.fillStyle = "rgba(200, 238, 255, 0.18)";
+    g.fillRect(0, 0, W, H);
+    g.strokeStyle = "rgba(235, 250, 255, 0.95)";
+    g.lineWidth = 2;
+    const cell = 32;
+    for (let y = 0; y <= H; y += cell) {
+      g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke();
+    }
+    for (let x = -H; x <= W + H; x += cell) {
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.stroke();
+      g.beginPath(); g.moveTo(x, H); g.lineTo(x + H, 0); g.stroke();
+    }
+    // a soft highlight in some panels
+    g.fillStyle = "rgba(255,255,255,0.06)";
+    const rng = makeRng(3);
+    for (let k = 0; k < 40; k++) g.fillRect(rng() * W, rng() * H, cell * 0.6, cell * 0.3);
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  });
+}
+
+/** weathered concrete with panel seams and bolts (dome bases) */
+export function concreteTexture() {
+  return cached("concrete", () => {
+    const S = 256;
+    const { c, g } = canvas(S, S / 2);
+    g.fillStyle = "#b7bcb6";
+    g.fillRect(0, 0, S, S / 2);
+    const rng = makeRng(21);
+    for (let k = 0; k < 900; k++) {
+      const v = 150 + rng() * 60;
+      g.fillStyle = `rgba(${v},${v + 4},${v},${0.25 + rng() * 0.3})`;
+      g.fillRect(rng() * S, rng() * S / 2, 1 + rng() * 3, 1 + rng() * 3);
+    }
+    // algae stains near the bottom
+    const grad = g.createLinearGradient(0, S / 2, 0, S / 4);
+    grad.addColorStop(0, "rgba(70,110,70,0.45)");
+    grad.addColorStop(1, "rgba(70,110,70,0)");
+    g.fillStyle = grad;
+    g.fillRect(0, S / 4, S, S / 4);
+    // seams and bolts
+    g.strokeStyle = "rgba(60,65,60,0.8)";
+    g.lineWidth = 2;
+    for (let x = 0; x <= S; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, S / 2); g.stroke(); }
+    g.beginPath(); g.moveTo(0, 18); g.lineTo(S, 18); g.stroke();
+    g.fillStyle = "#6d7276";
+    for (let x = 8; x < S; x += 16) { g.beginPath(); g.arc(x, 10, 2.2, 0, Math.PI * 2); g.fill(); }
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  });
+}
+
+/**
+ * floor textures for the hubs
+ * @param {"checker"|"lab"|"raised"|"pavers"} kind
+ */
+export function floorTexture(kind) {
+  return cached("floor-" + kind, () => {
+    const S = 256;
+    const { c, g } = canvas(S, S);
+    const rng = makeRng(kind.length * 7);
+    if (kind === "checker") {
+      const n = 8;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        g.fillStyle = (i + j) % 2 ? "#2f4a5c" : "#efe9dc";
+        g.fillRect((i * S) / n, (j * S) / n, S / n, S / n);
+      }
+    } else if (kind === "lab") {
+      g.fillStyle = "#e9eef0";
+      g.fillRect(0, 0, S, S);
+      g.strokeStyle = "#b9c4c8";
+      g.lineWidth = 2;
+      for (let x = 0; x <= S; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, S); g.stroke(); g.beginPath(); g.moveTo(0, x); g.lineTo(S, x); g.stroke(); }
+      for (let k = 0; k < 300; k++) { g.fillStyle = `rgba(150,170,175,${rng() * 0.25})`; g.fillRect(rng() * S, rng() * S, 2, 2); }
+    } else if (kind === "raised") {
+      // raised data-center floor: dark tiles, some perforated
+      g.fillStyle = "#3b4146";
+      g.fillRect(0, 0, S, S);
+      const n = 4;
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        const x = (i * S) / n, y = (j * S) / n;
+        g.fillStyle = "#4a5157";
+        g.fillRect(x + 3, y + 3, S / n - 6, S / n - 6);
+        if ((i + j) % 3 === 0) {
+          g.fillStyle = "#23282c";
+          for (let a = 10; a < S / n - 8; a += 8) for (let b = 10; b < S / n - 8; b += 8) {
+            g.beginPath(); g.arc(x + a, y + b, 2, 0, Math.PI * 2); g.fill();
+          }
+        }
+      }
+    } else {
+      // stone pavers with moss in the gaps
+      g.fillStyle = "#4f6b3a";
+      g.fillRect(0, 0, S, S);
+      for (let k = 0; k < 26; k++) {
+        const x = rng() * S, y = rng() * S, w = 30 + rng() * 40, h = 24 + rng() * 30;
+        const v = 150 + rng() * 50;
+        g.fillStyle = `rgb(${v},${v - 8},${v - 25})`;
+        g.beginPath();
+        g.ellipse(x, y, w / 2, h / 2, rng() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  });
+}
+
+/** server rack front: stacked units with vents and handles */
+export function rackTexture() {
+  return cached("rack", () => {
+    const W = 64, H = 256;
+    const { c, g } = canvas(W, H);
+    g.fillStyle = "#16191d";
+    g.fillRect(0, 0, W, H);
+    for (let y = 6; y < H - 6; y += 14) {
+      g.fillStyle = "#2a2f35";
+      g.fillRect(5, y, W - 10, 11);
+      g.fillStyle = "#11141a";
+      for (let x = 10; x < W - 22; x += 4) g.fillRect(x, y + 3, 2, 5); // vent slots
+      g.fillStyle = "#8a939c";
+      g.fillRect(W - 15, y + 4, 6, 3); // handle
+    }
+    const t = new T.CanvasTexture(c);
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  });
+}
+
+/** a screen full of code (scrolls when you move its offset) */
+export function codeScreenTexture(seed = 1) {
+  const W = 128, H = 128;
+  const { c, g } = canvas(W, H);
+  g.fillStyle = "#071a12";
+  g.fillRect(0, 0, W, H);
+  const rng = makeRng(seed);
+  const colors = ["#5dff9a", "#7fd6ff", "#ffd36a", "#ff8fb1", "#cfe8ff"];
+  for (let y = 4; y < H; y += 7) {
+    let x = 4 + Math.floor(rng() * 4) * 6;
+    while (x < W - 10 && rng() < 0.85) {
+      const len = 6 + rng() * 22;
+      g.fillStyle = colors[Math.floor(rng() * colors.length)];
+      g.fillRect(x, y, len, 3);
+      x += len + 4;
+    }
+  }
+  const t = new T.CanvasTexture(c);
+  t.wrapS = t.wrapT = T.RepeatWrapping;
+  t.colorSpace = T.SRGBColorSpace;
+  return t;
+}
+
+/** corridor floor: diamond-plate metal */
+export function deckTexture() {
+  return cached("deck", () => {
+    const S = 128;
+    const { c, g } = canvas(S, S);
+    g.fillStyle = "#9aa3a8";
+    g.fillRect(0, 0, S, S);
+    g.fillStyle = "#b9c2c6";
+    for (let y = 0; y < S; y += 16) for (let x = (y / 16) % 2 ? 8 : 0; x < S; x += 16) {
+      g.save(); g.translate(x + 4, y + 4); g.rotate(0.7); g.fillRect(-5, -1.5, 10, 3); g.restore();
+    }
+    g.fillStyle = "rgba(40,45,50,0.6)";
+    g.fillRect(0, 0, S, 2); // a seam between plates
+    const t = new T.CanvasTexture(c);
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.colorSpace = T.SRGBColorSpace;
+    return t;
+  });
+}
+
+/**
+ * CC0 texture sets from ambientCG (https://ambientcg.com), resized to 512 px:
+ * Ground054 (sand), Rock063, Planks037A, Concrete034, DiamondPlate008A,
+ * MetalPlates004. Each has a color map and an OpenGL-style normal map.
+ * @param {"Ground054"|"Rock063"|"Planks037A"|"Concrete034"|"DiamondPlate008A"|"MetalPlates004"} name
+ * @param {number} [rx=1] @param {number} [ry=1] - how many times it repeats
+ */
+export function texturePack(name, rx = 1, ry = 1) {
+  const loader = new T.TextureLoader();
+  const map = loader.load(`./textures/${name}_Color.jpg`);
+  map.colorSpace = T.SRGBColorSpace;
+  const normalMap = loader.load(`./textures/${name}_NormalGL.jpg`);
+  for (const t of [map, normalMap]) {
+    t.wrapS = t.wrapT = T.RepeatWrapping;
+    t.repeat.set(rx, ry);
+  }
+  return { map, normalMap };
+}

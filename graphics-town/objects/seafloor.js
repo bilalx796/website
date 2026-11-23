@@ -9,12 +9,13 @@
 
 import * as T from "three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
-import { vertexColor } from "three/tsl";
+import { vertexColor, texture, positionWorld } from "three/tsl";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight, floorSlope } from "./terrain.js";
 import { FLOOR_HALF } from "./layout.js";
 import { fbm2, smoothstep, makeRng } from "./util/noise.js";
 import { causticEmission } from "./shaders.js";
+import { texturePack } from "./materials.js";
 
 const SAND_LIGHT = [0.93, 0.84, 0.64];
 const SAND_DARK = [0.74, 0.64, 0.47];
@@ -78,7 +79,10 @@ export class SeaFloor extends GrObject {
     geometry.computeVertexNormals();
 
     const material = new MeshStandardNodeMaterial({ roughness: 0.95, metalness: 0 });
-    material.colorNode = vertexColor();
+    // sand grain (CC0 ambientCG Ground054) multiplied into the vertex colors;
+    // the floor has no UVs, so the texture is looked up by world x/z instead
+    const sand = texturePack("Ground054").map;
+    material.colorNode = vertexColor().mul(texture(sand, positionWorld.xz.mul(0.18)).rgb.mul(1.65));
     material.emissiveNode = causticEmission(0.32);
 
     const mesh = new T.Mesh(geometry, material);

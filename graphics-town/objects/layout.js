@@ -40,17 +40,18 @@ export const DOMES = [
   [-2, 13, 3.6],
 ];
 
-/** tram loop around the domes (closed spline) - y is the rail height */
+/** tram loop around the domes (closed spline) - y is the rail height (kept low so
+ *  the station platforms are only a short ramp above the dome floors) */
 /** @type {Array<Vec3>} */
 export const TRAM_ROUTE = [
-  [-19, 1.6, 10],
-  [-8, 1.6, 19],
-  [6, 1.6, 17],
-  [18, 1.6, 12],
-  [17, 1.6, -4],
-  [8, 1.6, -13],
-  [-7, 1.6, -13],
-  [-18, 1.6, -3],
+  [-19, 0.85, 10],
+  [-8, 0.85, 19],
+  [6, 0.85, 17],
+  [18, 0.85, 12],
+  [17, 0.85, -4],
+  [8, 0.85, -13],
+  [-7, 0.85, -13],
+  [-18, 0.85, -3],
 ];
 
 /** the shipwreck [x, z, heading] */

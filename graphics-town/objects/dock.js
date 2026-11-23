@@ -16,6 +16,7 @@ import * as T from "three";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight } from "./terrain.js";
 import { reef } from "./reefState.js";
+import { texturePack } from "./materials.js";
 
 /** @param {string} text */
 function makeSignTexture(text, sub) {
@@ -62,7 +63,8 @@ export class DockingStation extends GrObject {
     root.position.set(pos[0] + localX.x * OFFSET, pos[1], pos[2] + localX.z * OFFSET);
 
     const steel = new T.MeshStandardMaterial({ color: 0x8a96a0, metalness: 0.6, roughness: 0.4 });
-    const deckMat = new T.MeshStandardMaterial({ color: 0x5a6670, metalness: 0.4, roughness: 0.7 });
+    const dp = texturePack("DiamondPlate008A", 2, 4);
+    const deckMat = new T.MeshStandardMaterial({ map: dp.map, normalMap: dp.normalMap, color: 0x9aa6b0, metalness: 0.5, roughness: 0.5 });
     const hazard = new T.MeshStandardMaterial({ color: 0xf2b630, metalness: 0.2, roughness: 0.6 });
     const hubMat = new T.MeshStandardMaterial({ color: 0xdfe6ea, metalness: 0.3, roughness: 0.35 });
     const windowMat = new T.MeshStandardMaterial({ color: 0x3a6070, emissive: 0xffd590, emissiveIntensity: 0.2 });

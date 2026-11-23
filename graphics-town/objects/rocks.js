@@ -13,7 +13,7 @@ import * as T from "three";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight } from "./terrain.js";
 import { isFree } from "./placement.js";
-import { noiseNormalMap } from "./materials.js";
+import { texturePack } from "./materials.js";
 import { makeRng, noise3 } from "./util/noise.js";
 import { BEACON, WRECK } from "./layout.js";
 
@@ -38,8 +38,9 @@ export class Rocks extends GrObject {
   constructor(count = 90) {
     const root = new T.Group();
     const rng = makeRng(77);
-    const normalMap = noiseNormalMap(3, 0.12, 6);
-    const mat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95, normalMap, normalScale: new T.Vector2(1.2, 1.2) });
+    // CC0 rock textures (ambientCG Rock063)
+    const { map, normalMap } = texturePack("Rock063", 2, 2);
+    const mat = new T.MeshStandardMaterial({ color: 0xffffff, map, roughness: 0.95, normalMap, normalScale: new T.Vector2(1.4, 1.4) });
     const templates = [0, 1, 2, 3].map(k => rockGeometry(k * 13.7));
     const lists = templates.map(() => /** @type {Array<[number, number, number]>} */ ([]));
 

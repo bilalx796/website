@@ -121,6 +121,80 @@ Yes, written in TSL (required by the WebGPU renderer). They're in `objects/shade
 
 ---
 
+## Newer features (add these to the form and videos)
+- **Shark Frenzy game** (`objects/game.js`): play as the shark for 30 seconds and eat
+  as many fish as you can.
+  - The fish flee from you (larger fear radius).
+  - Each catch removes that fish, makes a blood cloud (instanced particles), flashes the
+    screen and shakes it.
+  - The screen turns bloodthirsty as the clock runs down: the water and fog go red, a red
+    vignette closes in, a CSS color filter heats up, and a heartbeat pulses in the last
+    6 seconds.
+  - The high score is saved in localStorage.
+- **Piloting** (`objects/pilot.js`): drive the shark or manta with a chase camera.
+  - Turning is capped (yaw rate), pitch eases toward a target, and you bank into turns.
+  - When you let go, the manta blends back onto its spline and the shark returns to its
+    patrol.
+- **First-person walking** (`objects/explorer.js`): a rideable resident.
+  - Ground height is the highest of: sea floor, dome floor, platform, walkway.
+  - Dome glass is solid except at the airlock, which opens for you. A funnel guides you
+    into the doorway.
+  - You also collide with the machinery in the middle of each dome.
+- **Commuters and walkways** (`objects/transit.js`): glass walkways connect each dome's
+  airlock to its station.
+  - Each resident runs a state machine: home, walk to station, wait, board (the tram
+    holds its doors), ride, get off at a different station, walk into that dome.
+  - This is the rubric's "train stops at a station and people get on and off" example.
+- **Domes with moving parts:**
+  - Every dome: chasing base lights (one instanced mesh with per-instance colors), a vent
+    turbine, and sliding airlock doors.
+  - Town hall: rotating observation ring, elevator, hologram.
+  - Lab: 3-joint robot arm.
+  - Garden: vertical farm wheel whose planters counter-rotate to stay upright.
+  - Homes: merry-go-round and windows that switch on and off.
+- **Walkable glass corridors** (`objects/corridor.js`): one sweep builder makes the
+  dome-to-dome corridors and the ramps from each airlock to its station platform.
+  - It has a level deck, a half-ellipse glass arch, ribs, a ceiling light strip, end
+    collars and support posts.
+  - Each corridor returns its walking path. Domes record an "opening" for each one, so
+    the first-person explorer can walk hub to hub and out to every station.
+  - The tram track was lowered so the ramps are gentle.
+- **Buildings** (`makeBuilding` in `habitats.js`): window grids with sills, doors,
+  cornices, gabled roofs with chimneys (homes), and flat-roofed shops with parapets,
+  striped awnings and lit signs. Panes are merged per building.
+- **Shark tail fix:** the swim wave's phase is accumulated (`phase += frequency × dt`)
+  instead of computed as `time × frequency`, so changing speed no longer makes the tail
+  jump. Frequency and amplitude are also capped.
+- **Shark Frenzy is a chase:** larger fear radius, faster panicked fish and a weaker pull
+  back home. The shark has to sprint to catch them.
+- **Zoom bar:** changes the camera field of view.
+- **Hidden WorldUI rows:** "View Solo Object" and "LookAt (highlighted)" are hidden
+  (`SHOW_GRADER_CONTROLS` in `07-06-01.js`). **Turn it back on before submitting**: the
+  rubric checks highlighting.
+
+## The four hubs (`objects/interiors.js`)
+- **Café Coral (cafeteria):**
+  - Buffet line with a sneeze guard, food pans, heat lamps, trays, plates and a drinks
+    station, plus a chef.
+  - Six round tables with chairs, pendant lights and a canvas-texture menu board.
+  - Diners run a state machine: queue along the buffet (a tray appears), walk the aisles
+    to a free chair, eat, then go back in line.
+- **Botany Lab:**
+  - Exotic plants: glowing bulb plants (curved tube stalks), spiral ferns (tubes along
+    spiral curves), lathed pitcher plants, cone succulents and a giant swaying leaf plant.
+  - Hydroponic rack, bell jars, grow lights, and a scientist who inspects each bed.
+- **Server Hub:**
+  - Two rows of racks; their LEDs are one InstancedMesh with per-instance blinking colors.
+  - Cable trays, a cooling unit with spinning fans, a turning status ring, and a
+    technician.
+- **Computer Lab:** desks with monitors scrolling code (texture offset), office chairs,
+  typing engineers, server racks, and a curved wall display whose canvas texture is
+  redrawn with live graphs.
+- **Shells:** geodesic glass (canvas panel texture), concrete bases, themed floors, and a
+  doorway frame with sliding glass doors. Residents can use the station doorways, but the
+  first-person explorer can't (it stays inside the hubs and corridors). Furniture blocks
+  the explorer through per-hub obstacle circles.
+
 ## Camera
 The orbit camera is replaced by a free camera (`objects/freeCamera.js`): arrow keys or
 WASD move, dragging turns the view, E/Q go up and down, Shift is faster, and the scroll
@@ -164,6 +238,12 @@ wheel moves forward and back.
 ## AI statement and attributions (you must fill these in; "none" is not allowed blank)
 - **AI:** be accurate. Claude (Anthropic) was used heavily to design the town and write
   the code. Check the course AI policy and describe your own contribution honestly.
+- **Texture attribution (required):** six CC0 (public-domain) texture sets from
+  **ambientCG** (https://ambientcg.com), resized to 512 px in `textures/`:
+  - Ground054 (sea floor sand), Rock063 (rocks), Planks037A (shipwreck)
+  - Concrete034 (hub bases), DiamondPlate008A (corridor floors, dock), MetalPlates004 (submarine hull)
+
+  CC0 needs no permission, but the course still requires you to list them.
 - **Attributions:**
   - The CS559 framework (course-provided).
   - three.js r180 (MIT), loaded from unpkg, including the `BufferGeometryUtils` add-on.
