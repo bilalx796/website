@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="icon" href="data:," />
   <title>Bilal Ali</title>
+  <meta name="description" content="Bilal Ali: Computer Science at UW–Madison, working on security and systems." />
   <link rel="stylesheet" href="assets/site.css" />
 </head>
 <body>
@@ -16,25 +17,95 @@
       <a href="ai-security-copilot/">AI Security Copilot</a>
     </nav>
 
-    <h1>Bilal Ali</h1>
-    <p class="lede">Computer Science student at UW–Madison working on security and systems: cybersecurity intern at the USDA, undergraduate researcher in OS &amp; storage systems, and builder of an AI security investigation copilot.</p>
+    <header class="hero">
+      <div class="bubbles" aria-hidden="true">
+        <span style="left:6%;  animation-duration:9s;  animation-delay:0s;   width:8px;  height:8px"></span>
+        <span style="left:18%; animation-duration:12s; animation-delay:3s"></span>
+        <span style="left:34%; animation-duration:10s; animation-delay:6s;   width:6px;  height:6px"></span>
+        <span style="left:52%; animation-duration:14s; animation-delay:1s;   width:14px; height:14px"></span>
+        <span style="left:68%; animation-duration:11s; animation-delay:4.5s"></span>
+        <span style="left:81%; animation-duration:13s; animation-delay:2s;   width:7px;  height:7px"></span>
+        <span style="left:93%; animation-duration:10s; animation-delay:7s;   width:12px; height:12px"></span>
+      </div>
+      <p class="hello">// hi, I'm</p>
+      <h1>Bilal Ali</h1>
+      <p class="lede">
+        Computer Science student at UW–Madison. I work on security and systems, and I like building
+        things you can actually poke at: investigation tools, storage experiments, and an underwater town.
+      </p>
+      <ul class="status">
+        <li>IT/Cybersecurity Intern · USDA</li>
+        <li>Undergrad Researcher · OS &amp; Storage</li>
+        <li class="amber">Building an AI Security Copilot</li>
+      </ul>
+      <div class="cta">
+        <a class="btn primary" href="resume/">View résumé →</a>
+        <a class="btn" href="graphics-town/07-06-01.html">Dive into Coralhaven 🐟</a>
+        <a class="btn" href="https://github.com/bilalx796">GitHub</a>
+        <a class="btn" href="mailto:bilalx796@gmail.com">Email</a>
+      </div>
+    </header>
 
-    <h2>Projects</h2>
+    <div class="section-title"><h2>Projects</h2><span>3 featured</span></div>
     <div class="cards">
-      <a class="card" href="graphics-town/07-06-01.html">
-        <img src="assets/coralhaven.jpg" alt="Coralhaven: glass domes on the sea floor, a tram loop, and a school of fish swimming in a heart shape" style="width:100%;border-radius:6px;margin-bottom:10px;display:block">
-        <h3>Coralhaven (Graphics Town)</h3>
-        <p>A sunken reef town in Three.js + WebGPU. Draw a shape and a school of 400 boids swims into it.</p>
+      <a class="card wide" href="graphics-town/07-06-01.html">
+        <img class="thumb" src="assets/coralhaven.jpg" alt="Coralhaven: four glass hubs on the sea floor joined by corridors, a tram loop, and a school of fish">
+        <div>
+          <span class="go">↗</span>
+          <h3>Coralhaven (Graphics Town)</h3>
+          <p>A living sunken reef town in three.js + WebGPU. Draw a shape and a 460-fish school swims into it,
+            walk the hubs in first person, or hunt fish as the shark in <b>Shark Frenzy</b>.</p>
+          <div class="tags"><span>three.js</span><span>WebGPU / TSL</span><span>boids</span><span>skinning</span><span>morphing</span></div>
+        </div>
       </a>
       <a class="card" href="ai-security-copilot/">
+        <div class="mini-term"><span class="c">$ copilot incidents</span>
+INC-0001  <span class="h">high</span>  5 detections  users: alice
+INC-0002  <span class="m">low</span>   1 detection   users: carol
+
+<span class="c">$ copilot incidents INC-0001</span>
+[medium] brute_force_user
+[medium] failed_then_success
+[high]   mfa_disabled
+[high]   privilege_granted</div>
+        <span class="go">↗</span>
         <h3>AI Security Investigation Copilot</h3>
-        <p>Correlates security events into incidents and tracks evidence and competing explanations. 3 of 8 phases built.</p>
+        <p>Turns raw security events into incidents, tracks evidence and competing explanations, and is growing an AI investigation loop.</p>
+        <div class="tags"><span>Python</span><span>SQLite</span><span>3 of 8 phases</span></div>
       </a>
       <a class="card" href="resume/">
+        <div class="mini-term">education   UW–Madison, B.S. CS ’27
+experience  USDA · IT/Cybersecurity
+            UW · OS &amp; Storage research
+projects    AI Security Copilot
+            Course Compass (DARS)
+            Security Log Investigator
+skills      Python · Java · C · TS
+            React · FastAPI · Linux</div>
+        <span class="go">↗</span>
         <h3>Résumé</h3>
-        <p>Education, experience and skills.</p>
+        <p>Experience, research, projects and skills, all on one page.</p>
       </a>
     </div>
+
+    <div class="section-title"><h2>Right now</h2><span>fall 2026</span></div>
+    <div class="now">
+      <div><b>🔐 Copilot, Phase 4</b><p>Adding AI-assisted assessments: evidence-grounded hypotheses that code validates before they count.</p></div>
+      <div><b>💾 Storage research</b><p>Benchmarking userspace storage (FUSE, ublk) against native paths: latency, throughput, bottlenecks.</p></div>
+      <div><b>🧭 Course Compass</b><p>A smarter DARS: finds majors, minors and certificates you're already close to.</p></div>
+    </div>
+
+    <div class="section-title"><h2>Toolbox</h2></div>
+    <div class="chips">
+      <span>Python</span><span>Java</span><span>C</span><span>JavaScript</span><span>TypeScript</span><span>Swift</span>
+      <span>React</span><span>Next.js</span><span>Node.js</span><span>FastAPI</span><span>three.js</span>
+      <span>PostgreSQL</span><span>MySQL</span><span>MongoDB</span><span>Linux</span><span>Git</span><span>PowerShell</span>
+    </div>
+
+    <footer class="site">
+      <span>© 2026 Bilal Ali · Madison, WI</span>
+      <span><a href="mailto:bilalx796@gmail.com">Email</a><a href="https://github.com/bilalx796">GitHub</a><a href="resume/">Résumé</a></span>
+    </footer>
   </div>
 </body>
 </html>
