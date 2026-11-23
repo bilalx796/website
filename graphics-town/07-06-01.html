@@ -7,21 +7,93 @@
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="./libs/CS559/style559.css" />
     <style>
-      /* a soft charcoal page instead of white */
-      html, body { background: #1b1e22; color: #e4e8ec; }
-      .town-head { max-width: 960px; margin: 8px 0 10px; font-family: system-ui, sans-serif; }
-      .town-head h1 { margin: 0; font-size: 22px; }
-      .town-head p { margin: 4px 0 0; color: #445; font-size: 14px; }
-      .town-head a { color: #1d6f8b; }
+      /* page look (kept here so the town works on its own, without the site's stylesheet) */
+      :root { --bg: #0f1216; --surface: #161b21; --surface-2: #1c232b; --text: #e8edf2; --muted: #9aa7b4;
+        --border: #26303a; --accent: #4fd1c5; --accent-2: #f2b630; --glow: rgba(79, 209, 197, 0.18); }
+      html, body { margin: 0; color: var(--text); font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif; }
+      body {
+        background:
+          radial-gradient(900px 500px at 10% -10%, rgba(79, 209, 197, 0.12), transparent 60%),
+          radial-gradient(700px 500px at 100% 10%, rgba(242, 182, 48, 0.08), transparent 60%),
+          radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 22px 22px,
+          var(--bg);
+        background-attachment: fixed;
+        min-height: 100vh;
+      }
+      .page { max-width: 1290px; margin: 0 auto; padding: 18px 12px 48px; }
+
+      /* the same frosted navigation bar as the rest of the site */
+      .site-nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 0 0 22px; padding: 8px 10px;
+        border: 1px solid var(--border); border-radius: 14px; background: rgba(22, 27, 33, 0.72);
+        backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font-size: 14px; }
+      .site-nav a { color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 9px; }
+      .site-nav a:hover { color: var(--text); background: var(--surface-2); }
+      .site-nav a[aria-current="page"] { color: #0f1216; background: var(--accent); font-weight: 600; }
+
+      .town-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; margin: 0 0 16px; }
+      .town-head .hello { color: var(--accent); font: 600 0.9rem ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 0 4px; }
+      .town-head h1 { margin: 0; font-size: clamp(2rem, 5vw, 2.8rem); line-height: 1.1; letter-spacing: -0.02em;
+        background: linear-gradient(90deg, #e8edf2 0%, var(--accent) 55%, var(--accent-2) 100%);
+        -webkit-background-clip: text; background-clip: text; color: transparent; }
+      .town-head .sub { margin: 4px 0 0; color: var(--muted); }
+      .badges { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+      .badges li { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px;
+        border: 1px solid var(--border); background: var(--surface); font-size: 0.82rem; }
+      .badges li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+      .badges li.amber::before { background: var(--accent-2); box-shadow: 0 0 8px var(--accent-2); }
+
+      /* frame the 3D view and round off the side panels */
+      .view-wrap { border-radius: 14px; border: 1px solid var(--border); box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(79, 209, 197, 0.08), 0 0 40px var(--glow); }
+      .view-wrap canvas { display: block; }
+      .side-col .lil-gui.root { border-radius: 12px; overflow: hidden; border: 1px solid var(--border); }
+      .side-col .reef-panel { border-radius: 12px; border: 1px solid var(--border); }
+
+      /* "things to try" under the view */
+      .try { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 22px; }
+      .try div { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--border);
+        background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+      .try i { font-style: normal; font-size: 1.3rem; }
+      .try b { display: block; margin: 4px 0 2px; }
+      .try p { margin: 0; color: var(--muted); font-size: 0.9rem; line-height: 1.5; }
+      .try kbd { padding: 0 5px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px;
+        background: var(--surface-2); font: 0.78rem system-ui, sans-serif; color: var(--text); }
     </style>
   </head>
 
   <body>
-    <div class="town-head">
-      <h1>Coralhaven: a sunken reef town</h1>
+    <div class="page">
+      <nav class="site-nav">
+        <a href="../">Home</a>
+        <a href="../resume/">Résumé</a>
+        <a href="./07-06-01.html" aria-current="page">Graphics Town</a>
+        <a href="../ai-security-copilot/">AI Security Copilot</a>
+      </nav>
+
+      <div class="town-head">
+        <div>
+          <p class="hello">// cs559 · graphics town</p>
+          <h1>Coralhaven</h1>
+          <p class="sub">A living sunken reef town, built with three.js + WebGPU</p>
+        </div>
+        <ul class="badges">
+          <li>460-fish boids school</li>
+          <li>4 walkable hubs</li>
+          <li>Skinned &amp; morphed creatures</li>
+          <li class="amber">Shark Frenzy</li>
+        </ul>
+      </div>
+
+      <div id="div1"></div>
+
+      <div class="try">
+        <div><i>✏️</i><b>Draw a shape</b><p>Sketch anything (or type a word) and the whole school swims into it.</p></div>
+        <div><i>🩸</i><b>Shark Frenzy</b><p>30 seconds as the shark. The fish run. Your best score is saved.</p></div>
+        <div><i>🚶</i><b>Walk the hubs</b><p>First person through the café, botany lab, server hub and computer lab.</p></div>
+        <div><i>🦈</i><b>Ride anything</b><p>Drive the shark or manta, or ride the sub, tram or turtle. <kbd>Esc</kbd> to stop.</p></div>
+      </div>
     </div>
-    <div id="div1"></div>
-        <script type="importmap">
+
+    <script type="importmap">
 {
     "imports": {
         "three": "https://unpkg.com/three@0.180.0/build/three.module.js",
