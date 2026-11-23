@@ -16,67 +16,93 @@
       <a href="./" aria-current="page">AI Security Copilot</a>
     </nav>
 
-    <h1>AI Security Investigation Copilot</h1>
-    <p class="lede">
-      A decision-support tool that helps security analysts investigate suspicious activity: it groups related
-      events into incidents, weighs competing explanations, works out what evidence is missing, and updates its
-      assessment as new evidence arrives.
-    </p>
-    <p class="meta-row">
-      <span class="pill">Python</span><span class="pill">SQLite</span><span class="pill">Pydantic</span><span class="pill">pytest</span><span class="pill">Claude API (next)</span>
-      · <a href="https://github.com/bilalx796/AI-Security-Investigation-Copilot">Code on GitHub</a>
-    </p>
+    <header class="cv-head">
+      <div>
+        <p class="hello">// project</p>
+        <h1 class="grad">AI Security Investigation Copilot</h1>
+        <p class="cv-sub proj-lede">
+          A decision-support tool for security analysts: it groups related events into incidents, weighs competing
+          explanations, works out what evidence is missing, and updates its assessment as new evidence arrives.
+        </p>
+      </div>
+      <div class="stats">
+        <div><b>3 / 8</b><span>phases built</span></div>
+        <div><b>137</b><span>tests passing</span></div>
+        <div><b>6</b><span>detection rules</span></div>
+        <div><b>Python</b><span>SQLite · Pydantic</span></div>
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/bilalx796/AI-Security-Investigation-Copilot">View the code →</a>
+        <a class="btn" href="../resume/">Résumé</a>
+      </div>
+    </header>
 
-    <h2>The problem</h2>
-    <p>
-      A typical monitoring tool sees 35 failed logins, then a success from a new IP, and raises an alert. An analyst
-      then has to answer the real questions by hand: are these events related? Is it an attacker, an employee on a
-      trip, or a misconfigured service? What would tell those apart? The Copilot is built to do that investigative
-      work and show its reasoning, not just flag events.
-    </p>
+    <h2 class="cv-title"><span>01</span> The problem</h2>
+    <div class="compare">
+      <div class="before">
+        <p class="label">A typical monitoring tool</p>
+        <ul>
+          <li>Sees 35 failed logins, then a success from a new IP</li>
+          <li>Raises an alert</li>
+          <li>Leaves the analyst to figure out the rest by hand</li>
+        </ul>
+      </div>
+      <div class="after">
+        <p class="label">The Copilot</p>
+        <ul>
+          <li>Links the events into one incident and says why</li>
+          <li>Weighs attacker vs. traveling employee vs. misconfigured service</li>
+          <li>Finds the evidence that would tell them apart, and shows its reasoning</li>
+        </ul>
+      </div>
+    </div>
 
-    <h2>How it works</h2>
-    <ol class="steps">
-      <li><b>Ingest</b> JSON / JSON Lines security logs. Bad records are quarantined with the reason instead of being dropped.</li>
-      <li><b>Normalize</b> every source into one event format, with timestamps converted to UTC and the raw record kept.</li>
-      <li><b>Detect</b> suspicious patterns with rules: brute force, failure then success, unfamiliar login, MFA disabled, privileges granted.</li>
-      <li><b>Correlate</b> detections into incidents when they share a user or IP within an hour, and record why they were grouped.</li>
-      <li><b>Investigate</b>: track evidence, competing hypotheses and versioned assessments for each incident.</li>
-      <li><i>Next:</i> an AI-assisted loop of <b>assess → find gaps → plan queries → retrieve evidence → reassess</b>, ending in prioritized recommendations for a human analyst.</li>
-    </ol>
+    <h2 class="cv-title"><span>02</span> How it works</h2>
+    <div class="pipeline">
+      <div class="step done"><i>📥</i><b>Ingest</b><p>JSON / JSONL logs. Bad records are quarantined with a reason, not dropped.</p></div>
+      <div class="step done"><i>🧹</i><b>Normalize</b><p>One event format, UTC timestamps, raw record kept.</p></div>
+      <div class="step done"><i>🚨</i><b>Detect</b><p>Brute force, failure then success, unfamiliar login, MFA off, privilege grants.</p></div>
+      <div class="step done"><i>🔗</i><b>Correlate</b><p>Detections sharing a user or IP within an hour become one incident.</p></div>
+      <div class="step done"><i>🗂️</i><b>Track</b><p>Evidence, competing hypotheses and versioned assessments per incident.</p></div>
+      <div class="step next"><i>🧠</i><b>Investigate</b><p>Next: assess → find gaps → retrieve evidence → reassess, with AI.</p></div>
+    </div>
 
-    <h2>What it does today</h2>
-    <p>On the sample authentication logs, the pipeline turns 12 raw events into two incidents:</p>
+    <h2 class="cv-title"><span>03</span> What it does today</h2>
+    <p class="note">On the sample authentication logs, the pipeline turns 12 raw events into two incidents:</p>
+    <div class="window">
+      <div class="window-bar"><span></span><span></span><span></span><em>copilot: zsh</em></div>
 <pre class="term"><span class="cmd">$ copilot ingest data/scenarios/legacy_sample/events.json --source authentication</span>
 12 stored, 0 duplicates, 0 quarantined
 <span class="cmd">$ copilot analyze</span>
 Detections: 6 total, 6 new, 0 replaced
 Incidents: 2 created, 0 updated, 0 merged, 0 unchanged
 <span class="cmd">$ copilot incidents</span>
-INC-0001  high      5 detections  7 events  users: alice
-INC-0002  low       1 detections  1 events  users: carol
+INC-0001  <span class="sev-h">high</span>      5 detections  7 events  users: alice
+INC-0002  <span class="sev-l">low</span>       1 detections  1 events  users: carol
 <span class="cmd">$ copilot incidents INC-0001</span>
-Severity estimate: high
+Severity estimate: <span class="sev-h">high</span>
 Grouped because: same source IP: 10.2.4.15; same source IP: 185.44.10.21; same user: alice
 
 Detections (observations, not conclusions):
-  [medium] brute_force_user: 3 failed logins for alice in 40 seconds
-  [medium] failed_then_success: Successful login for alice 140 seconds after 3 failed attempts
-  [high] mfa_disabled: MFA disabled for alice 120 seconds after login
-  [high] privilege_granted: Privileges granted for alice 240 seconds after login
-  [low] unfamiliar_login: Successful login for alice from previously unseen IP 185.44.10.21</pre>
+  [<span class="sev-m">medium</span>] brute_force_user: 3 failed logins for alice in 40 seconds
+  [<span class="sev-m">medium</span>] failed_then_success: Successful login for alice 140 seconds after 3 failed attempts
+  [<span class="sev-h">high</span>]   mfa_disabled: MFA disabled for alice 120 seconds after login
+  [<span class="sev-h">high</span>]   privilege_granted: Privileges granted for alice 240 seconds after login
+  [<span class="sev-l">low</span>]    unfamiliar_login: Successful login for alice from previously unseen IP 185.44.10.21</pre>
+    </div>
     <p class="note">
-      The 5 detections against alice are linked into one incident with the reason recorded, while a normal user's
-      activity produces no incident. Each detection is labeled an observation: the system doesn't claim the
-      account is compromised. That judgment belongs to the investigation phases.
+      Alice's 5 detections are linked into one incident with the reason recorded, while a normal user's activity
+      produces none. Each detection is labeled an observation: the system doesn't claim the account is compromised.
+      That judgment belongs to the investigation phases.
     </p>
 
-    <h2>Progress</h2>
-    <p><b>3 of 8 phases built</b>, with 137 automated tests passing.</p>
-    <div class="phases">
+    <h2 class="cv-title"><span>04</span> Progress</h2>
+    <div class="progress"><div style="width: 37.5%"></div></div>
+    <p class="note"><b style="color: var(--text)">3 of 8 phases built</b>, with 137 automated tests passing.</p>
+    <div class="phase-grid">
       <div class="phase done"><span>1</span>Foundation: ingest, validate, normalize, store</div>
       <div class="phase done"><span>2</span>Detection and correlation into incidents</div>
-      <div class="phase done"><span>3</span>Investigation state: evidence, hypotheses, assessment history</div>
+      <div class="phase done"><span>3</span>Investigation state: evidence, hypotheses, history</div>
       <div class="phase next"><span>4</span>AI-assisted initial assessment (next)</div>
       <div class="phase"><span>5</span>Active investigation: find gaps, retrieve evidence</div>
       <div class="phase"><span>6</span>Reassessment and recommendations</div>
@@ -84,14 +110,19 @@ Detections (observations, not conclusions):
       <div class="phase"><span>8</span>API, dashboard and SIEM integration</div>
     </div>
 
-    <h2>Design principles</h2>
-    <ul>
-      <li><b>Python controls the workflow.</b> The model proposes; code validates every response before it can change an investigation.</li>
-      <li><b>Every conclusion cites evidence,</b> and each piece of evidence states its limitations.</li>
-      <li><b>Hypotheses aren't facts.</b> Support levels change only when matching evidence is cited, and every change is logged.</li>
-      <li><b>Investigations are bounded</b> by iteration and time limits.</li>
-      <li><b>Humans stay in control.</b> The Copilot recommends actions; it never disables accounts or isolates machines itself.</li>
-    </ul>
+    <h2 class="cv-title"><span>05</span> Design principles</h2>
+    <div class="principles">
+      <div><i>🐍</i><b>Python controls the workflow</b><p>The model proposes; code validates every response before it can change an investigation.</p></div>
+      <div><i>🧾</i><b>Every conclusion cites evidence</b><p>And each piece of evidence states its own limitations.</p></div>
+      <div><i>⚖️</i><b>Hypotheses aren't facts</b><p>Support changes only when matching evidence is cited, and every change is logged.</p></div>
+      <div><i>⏱️</i><b>Investigations are bounded</b><p>Iteration and time limits stop runaway investigations.</p></div>
+      <div><i>🧑‍💻</i><b>Humans stay in control</b><p>It recommends actions; it never disables accounts or isolates machines itself.</p></div>
+    </div>
+
+    <footer class="site">
+      <span>© 2026 Bilal Ali · Madison, WI</span>
+      <span><a href="https://github.com/bilalx796/AI-Security-Investigation-Copilot">Code</a><a href="../resume/">Résumé</a><a href="../">Home</a></span>
+    </footer>
   </div>
 </body>
 </html>
