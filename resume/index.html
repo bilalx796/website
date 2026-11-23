@@ -16,87 +16,106 @@
       <a href="../ai-security-copilot/">AI Security Copilot</a>
     </nav>
 
-    <h1>Bilal Ali</h1>
-    <p class="lede">
-      Computer Science at UW–Madison · Madison, Wisconsin ·
-      <a href="mailto:bilalx796@gmail.com">bilalx796@gmail.com</a> ·
-      <a href="https://linkedin.com/bilal">LinkedIn</a>
-    </p>
+    <header class="cv-head">
+      <div>
+        <p class="hello">// résumé</p>
+        <h1 class="grad">Bilal Ali</h1>
+        <p class="cv-sub">B.S. Computer Science · University of Wisconsin–Madison · Madison, WI</p>
+      </div>
+      <div class="cta">
+        <a class="btn primary" href="mailto:bilalx796@gmail.com">✉ bilalx796@gmail.com</a>
+        <a class="btn" href="https://www.linkedin.com/in/bilal-ali-9739433ab">LinkedIn</a>
+        <a class="btn" href="https://github.com/bilalx796">GitHub</a>
+        <button class="btn" type="button" onclick="window.print()">⎙ Print / Save PDF</button>
+      </div>
+    </header>
 
     <section class="cv">
-      <h2>Education</h2>
-      <div class="entry">
+      <h2 class="cv-title"><span>01</span> Education</h2>
+      <div class="edu-card">
         <div class="entry-head"><h3>University of Wisconsin–Madison</h3><span class="when">Expected May 2027</span></div>
         <div class="where">B.S. in Computer Science</div>
-        <p><b>Relevant coursework:</b> Artificial Intelligence, Object-Oriented Design and Programming, Data Structures &amp;
-          Algorithms, AI-Assisted Software Development, Computer Architecture, Operating Systems, Cryptography</p>
+        <p class="label">Relevant coursework</p>
+        <div class="chips small">
+          <span>Artificial Intelligence</span><span>Object-Oriented Design</span><span>Data Structures &amp; Algorithms</span>
+          <span>AI-Assisted Software Development</span><span>Computer Architecture</span><span>Operating Systems</span><span>Cryptography</span>
+        </div>
       </div>
 
-      <h2>Experience</h2>
-      <div class="entry">
-        <div class="entry-head"><h3>IT/Cybersecurity Intern</h3><span class="when">May 2026 – Present</span></div>
-        <div class="where">U.S. Department of Agriculture</div>
-        <ul>
-          <li>Research 30+ software vulnerabilities and remediation strategies to support vulnerability assessment, prioritization, and remediation across user systems.</li>
-          <li>Develop Excel-based reports tracking 500+ vulnerabilities and automate reporting workflows, reducing manual effort by approximately 20%.</li>
-          <li>Remotely access and troubleshoot user computers to implement vulnerability remediations and resolve technical issues.</li>
-        </ul>
-      </div>
-      <div class="entry">
-        <div class="entry-head"><h3>Undergraduate Researcher – OS &amp; Storage Systems</h3><span class="when">Sept. 2026 – Present</span></div>
-        <div class="where">University of Wisconsin–Madison</div>
-        <ul>
-          <li>Evaluate performance and reliability trade-offs across userspace storage approaches, focusing on I/O latency, throughput, and request handling.</li>
-          <li>Research Linux userspace storage interfaces, including FUSE and ublk, analyzing kernel–userspace interactions and their roles in filesystem and block-device operations.</li>
-          <li>Investigate benchmarking methodologies to compare userspace storage systems against native alternatives and identify potential performance bottlenecks.</li>
-        </ul>
-      </div>
-      <div class="entry">
-        <div class="entry-head"><h3>Club President</h3><span class="when">Aug. 2022 – May 2023</span></div>
-        <div class="where">Muslim Student Association</div>
-        <ul>
-          <li>Drove improvements to member engagement by analyzing 60+ survey responses and translating feedback into actionable recommendations for club programming and events.</li>
-          <li>Partnered with 5+ campus organizations to coordinate initiatives and expand MSA’s presence.</li>
-        </ul>
-      </div>
-
-      <h2>Projects</h2>
-      <div class="entry">
-        <div class="entry-head"><h3><a href="../ai-security-copilot/">AI Security Investigation Copilot</a></h3><span class="when">Aug. 2026 – Present</span></div>
-        <div class="where">Python · AI · Security Event Analysis</div>
-        <ul>
-          <li>Developing an AI-powered security investigation platform that processes structured security events, correlates related activity, and generates evidence-backed incident assessments.</li>
-          <li>Designing a modular event-processing pipeline to normalize incoming logs, maintain incident context, and update assessments as new evidence becomes available.</li>
-          <li>Building an investigation workflow that evaluates supporting and conflicting evidence, identifies uncertainty, and generates prioritized recommendations for security analysts.</li>
-        </ul>
-      </div>
-      <div class="entry">
-        <div class="entry-head"><h3>Security Log Investigator</h3><span class="when">Mar. 2026 – Apr. 2026</span></div>
-        <div class="where">Python · Log Analysis · Detection Rules</div>
-        <ul>
-          <li>Developed a Python-based security analysis tool that parses authentication and system logs to identify suspicious activity and potential account compromises.</li>
-          <li>Implemented detection rules for brute-force attempts, unusual login activity, privilege escalation indicators, and other suspicious patterns.</li>
-          <li>Generated evidence-based alerts and investigation recommendations to help analysts prioritize potential security incidents.</li>
-        </ul>
-      </div>
-      <div class="entry">
-        <div class="entry-head"><h3>Course Compass (DARS degree-planning assistant)</h3><span class="when">Nov. 2026 – Present</span></div>
-        <div class="where">Python · FastAPI · MySQL · React · Gemini (Vertex AI)</div>
-        <ul>
-          <li>Building a full-stack degree-planning app that extends UW–Madison’s DARS audit, surfacing majors, minors, and certificates a student is already 60%+ toward, with the courses that count and the ones still missing.</li>
-          <li>Leading the backend on a two-person team: a deterministic degree-audit engine, FastAPI and MySQL API, and CI/CD deployment to Google Cloud with Docker and GitLab CI.</li>
-          <li>Designing a tool-calling AI advisor that answers planning questions by running audits, prerequisite checks, and plan simulations, with every answer validated against the audit engine.</li>
-        </ul>
+      <h2 class="cv-title"><span>02</span> Experience</h2>
+      <div class="timeline">
+        <div class="entry">
+          <div class="entry-head"><h3>IT/Cybersecurity Intern</h3><span class="when">May 2026 – Present</span></div>
+          <div class="where">U.S. Department of Agriculture</div>
+          <ul>
+            <li>Research 30+ software vulnerabilities and remediation strategies to support vulnerability assessment, prioritization, and remediation across user systems.</li>
+            <li>Develop Excel-based reports tracking 500+ vulnerabilities and automate reporting workflows, reducing manual effort by approximately 20%.</li>
+            <li>Remotely access and troubleshoot user computers to implement vulnerability remediations and resolve technical issues.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><h3>Undergraduate Researcher – OS &amp; Storage Systems</h3><span class="when">Sept. 2026 – Present</span></div>
+          <div class="where">University of Wisconsin–Madison</div>
+          <ul>
+            <li>Evaluate performance and reliability trade-offs across userspace storage approaches, focusing on I/O latency, throughput, and request handling.</li>
+            <li>Research Linux userspace storage interfaces, including FUSE and ublk, analyzing kernel–userspace interactions and their roles in filesystem and block-device operations.</li>
+            <li>Investigate benchmarking methodologies to compare userspace storage systems against native alternatives and identify potential performance bottlenecks.</li>
+          </ul>
+        </div>
+        <div class="entry">
+          <div class="entry-head"><h3>Club President</h3><span class="when">Aug. 2022 – May 2023</span></div>
+          <div class="where">Muslim Student Association</div>
+          <ul>
+            <li>Drove improvements to member engagement by analyzing 60+ survey responses and translating feedback into actionable recommendations for club programming and events.</li>
+            <li>Partnered with 5+ campus organizations to coordinate initiatives and expand MSA’s presence.</li>
+          </ul>
+        </div>
       </div>
 
-      <h2>Technical Skills</h2>
-      <dl class="skills">
-        <dt>Programming Languages</dt><dd>Java, Python, C, JavaScript, TypeScript, Swift</dd>
-        <dt>Web Development</dt><dd>React, Next.js, Node.js, HTML, CSS, Tailwind CSS</dd>
-        <dt>Databases</dt><dd>PostgreSQL, MongoDB, REST APIs, SQL</dd>
-        <dt>Systems &amp; Tools</dt><dd>Linux, Windows, PowerShell, Git, GitHub, Excel, BMC Remedy</dd>
-      </dl>
+      <h2 class="cv-title"><span>03</span> Projects</h2>
+      <div class="proj-grid">
+        <div class="proj">
+          <div class="entry-head"><h3><a href="../ai-security-copilot/">AI Security Investigation Copilot ↗</a></h3><span class="when">Aug. 2026 – Present</span></div>
+          <div class="tags"><span>Python</span><span>AI</span><span>Security Event Analysis</span></div>
+          <ul>
+            <li>Developing an AI-powered security investigation platform that processes structured security events, correlates related activity, and generates evidence-backed incident assessments.</li>
+            <li>Designing a modular event-processing pipeline to normalize incoming logs, maintain incident context, and update assessments as new evidence becomes available.</li>
+            <li>Building an investigation workflow that evaluates supporting and conflicting evidence, identifies uncertainty, and generates prioritized recommendations for security analysts.</li>
+          </ul>
+        </div>
+        <div class="proj">
+          <div class="entry-head"><h3>Course Compass (DARS degree-planning assistant)</h3><span class="when">Nov. 2026 – Present</span></div>
+          <div class="tags"><span>Python</span><span>FastAPI</span><span>MySQL</span><span>React</span><span>Gemini (Vertex AI)</span></div>
+          <ul>
+            <li>Building a full-stack degree-planning app that extends UW–Madison’s DARS audit, surfacing majors, minors, and certificates a student is already 60%+ toward, with the courses that count and the ones still missing.</li>
+            <li>Leading the backend on a two-person team: a deterministic degree-audit engine, FastAPI and MySQL API, and CI/CD deployment to Google Cloud with Docker and GitLab CI.</li>
+            <li>Designing a tool-calling AI advisor that answers planning questions by running audits, prerequisite checks, and plan simulations, with every answer validated against the audit engine.</li>
+          </ul>
+        </div>
+        <div class="proj">
+          <div class="entry-head"><h3>Security Log Investigator</h3><span class="when">Mar. 2026 – Apr. 2026</span></div>
+          <div class="tags"><span>Python</span><span>Log Analysis</span><span>Detection Rules</span></div>
+          <ul>
+            <li>Developed a Python-based security analysis tool that parses authentication and system logs to identify suspicious activity and potential account compromises.</li>
+            <li>Implemented detection rules for brute-force attempts, unusual login activity, privilege escalation indicators, and other suspicious patterns.</li>
+            <li>Generated evidence-based alerts and investigation recommendations to help analysts prioritize potential security incidents.</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2 class="cv-title"><span>04</span> Technical Skills</h2>
+      <div class="skill-groups">
+        <div><p class="label">Languages</p><div class="chips small"><span>Java</span><span>Python</span><span>C</span><span>JavaScript</span><span>TypeScript</span><span>Swift</span></div></div>
+        <div><p class="label">Web</p><div class="chips small"><span>React</span><span>Next.js</span><span>Node.js</span><span>HTML</span><span>CSS</span><span>Tailwind CSS</span></div></div>
+        <div><p class="label">Databases</p><div class="chips small"><span>PostgreSQL</span><span>MongoDB</span><span>REST APIs</span><span>SQL</span></div></div>
+        <div><p class="label">Systems &amp; Tools</p><div class="chips small"><span>Linux</span><span>Windows</span><span>PowerShell</span><span>Git</span><span>GitHub</span><span>Excel</span><span>BMC Remedy</span></div></div>
+      </div>
     </section>
+
+    <footer class="site">
+      <span>© 2026 Bilal Ali · Madison, WI</span>
+      <span><a href="mailto:bilalx796@gmail.com">Email</a><a href="https://github.com/bilalx796">GitHub</a><a href="../">Home</a></span>
+    </footer>
   </div>
 </body>
 </html>

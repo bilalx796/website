@@ -192,3 +192,57 @@ footer.site { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--b
   display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
 footer.site a { color: var(--muted); text-decoration: none; margin-left: 14px; }
 footer.site a:hover { color: var(--accent); }
+
+/* ---------- résumé page ---------- */
+.hello { color: var(--accent); font: 600 0.95rem ui-monospace, SFMono-Regular, Menlo, monospace; margin: 0 0 8px; }
+.grad {
+  font-size: clamp(2.4rem, 7vw, 3.4rem);
+  background: linear-gradient(90deg, #e8edf2 0%, var(--accent) 60%, var(--accent-2) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.cv-head { display: flex; flex-direction: column; gap: 18px; padding-bottom: 8px; }
+.cv-sub { color: var(--muted); margin: 0; font-size: 1.05rem; }
+button.btn { cursor: pointer; font-family: inherit; }
+.cv-title { display: flex; align-items: center; gap: 12px; margin: 48px 0 16px; font-size: 1.3rem; border: 0; padding: 0; }
+.cv-title span { font: 600 0.8rem ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent);
+  padding: 3px 8px; border: 1px solid rgba(79, 209, 197, 0.4); border-radius: 7px; background: rgba(79, 209, 197, 0.08); }
+.cv-title::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+.cv .when { color: var(--accent-2); font: 0.82rem ui-monospace, SFMono-Regular, Menlo, monospace; padding: 2px 8px;
+  border-radius: 6px; background: rgba(242, 182, 48, 0.08); border: 1px solid rgba(242, 182, 48, 0.25); }
+.cv .label { margin: 12px 0 6px; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.edu-card, .proj { padding: 18px 20px; border-radius: 14px; border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface)); }
+.edu-card { border-left: 3px solid var(--accent); }
+.chips.small span { font-size: 0.82rem; padding: 3px 10px; }
+
+/* experience timeline: a line down the left with a glowing dot per job */
+.timeline { position: relative; padding-left: 26px; }
+.timeline::before { content: ""; position: absolute; left: 6px; top: 6px; bottom: 6px; width: 2px;
+  background: linear-gradient(180deg, var(--accent), rgba(79, 209, 197, 0.1)); border-radius: 2px; }
+.timeline .entry { position: relative; margin: 0 0 24px; }
+.timeline .entry::before { content: ""; position: absolute; left: -26px; top: 6px; width: 14px; height: 14px; border-radius: 50%;
+  background: var(--bg); border: 3px solid var(--accent); box-shadow: 0 0 12px var(--glow); }
+
+.proj-grid { display: grid; gap: 14px; }
+.proj { transition: border-color 0.2s, transform 0.2s; }
+.proj:hover { border-color: rgba(79, 209, 197, 0.5); transform: translateX(3px); }
+.proj h3 a { color: var(--text); text-decoration: none; }
+.proj h3 a:hover { color: var(--accent); }
+.proj .tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.proj .tags span { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; background: rgba(79, 209, 197, 0.08);
+  border: 1px solid rgba(79, 209, 197, 0.3); color: var(--accent); }
+.skill-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 18px; }
+.skill-groups .label { margin-top: 4px; }
+
+/* printing / "Save as PDF": plain black on white, no navigation or buttons */
+@media print {
+  body { background: #fff !important; color: #000; font-size: 11pt; }
+  nav, .cta, footer.site { display: none !important; }
+  .wrap { padding: 0; max-width: none; }
+  .grad { color: #000; background: none; -webkit-text-fill-color: #000; }
+  .edu-card, .proj { background: none; border: 1px solid #ccc; break-inside: avoid; }
+  .cv .when, .proj .tags span, .cv-title span, .chips span { color: #000; background: none; border-color: #999; }
+  .timeline::before, .timeline .entry::before { box-shadow: none; }
+  .cv-sub, .where, .cv .label, .hello { color: #333; }
+  a, .proj h3 a { color: #000 !important; }
+}
