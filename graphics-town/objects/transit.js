@@ -24,6 +24,7 @@
 import * as T from "three";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { makePerson, corridorMaterials } from "./habitats.js";
+import { walkPose } from "./people.js";
 import { buildCorridor } from "./corridor.js";
 import { PLATFORM_HALF_WIDTH } from "./tram.js";
 import { makeRng } from "./util/noise.js";
@@ -161,7 +162,7 @@ export class Commuters extends GrObject {
     }
     // bob up and down a little while walking
     p.bob += dt * 9;
-    p.mesh.children.forEach(c => (c.position.y = (c.position.y > 0.4 ? 0.6 : 0.27) + Math.abs(Math.sin(p.bob)) * 0.03));
+    walkPose(p.mesh, p.bob, p.path.length ? 1 : 0);
     // open the airlock when passing it
     const dome = this.links[p.link].dome;
     if (pos.distanceTo(dome.doorOutside()) < 1.6 || pos.distanceTo(dome.doorInside()) < 1.2) dome.doorRequest = 0.6;

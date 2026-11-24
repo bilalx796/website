@@ -31,7 +31,7 @@
 import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { glowMaterial, rackTexture, codeScreenTexture } from "./materials.js";
-import { makePerson, setSeated } from "./people.js";
+import { makePerson, setSeated, walkPose } from "./people.js";
 import { reef } from "./reefState.js";
 
 /** keep only position/normal/uv so different geometries can be merged */
@@ -79,12 +79,16 @@ function stepToward(person, target, speed, dt) {
   const p = person.position;
   const dx = target.x - p.x, dz = target.z - p.z;
   const d = Math.hypot(dx, dz);
-  if (d < 0.02) return true;
+  if (d < 0.02) { walkPose(person, 0, 0); return true; }
   const s = Math.min(d, speed * dt);
   p.x += (dx / d) * s;
   p.z += (dz / d) * s;
   person.rotation.y = Math.atan2(dx, dz);
-  return d - s < 0.02;
+  // swing the arms and legs while walking (stand still on arrival)
+  person.userData.walkPhase = (person.userData.walkPhase ?? 0) + s * 11;
+  const done = d - s < 0.02;
+  walkPose(person, person.userData.walkPhase, done ? 0 : 1);
+  return done;
 }
 
 // ---------------------------------------------------------------------------
@@ -240,7 +244,7 @@ export function buildCafeteria(root, { Y, rng }) {
   for (let k = 0; k < 7; k++) {
     const p = makePerson(shirts[k]);
     const tray = new T.Mesh(new T.BoxGeometry(0.22, 0.02, 0.16), mat(0x5a6a7a));
-    tray.position.set(0, 0.34, 0.16);
+    tray.position.set(0, 0.82, 0.32);
     tray.visible = false;
     p.add(tray);
     root.add(p);
@@ -302,7 +306,7 @@ export function buildCafeteria(root, { Y, rng }) {
         if (head) head.position.y = 0.6 - 0.025 * Math.max(0, Math.sin(t * 5 + p.id));
         if (d.timer <= 0) {
           setSeated(p, null);
-          d.tray.position.set(0, 0.34, 0.16);
+          d.tray.position.set(0, 0.82, 0.32);
           d.seat.taken = false;
           d.tray.visible = false;
           d.path = [new T.Vector3(d.seat.lane, Y, d.seat.seat.z), new T.Vector3(d.seat.lane, Y, -1.2), new T.Vector3(-3.0, Y, -1.2), new T.Vector3(-3.0, Y, lineZ)];

@@ -23,9 +23,10 @@ import * as T from "three";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight } from "./terrain.js";
 import { makePerson } from "./habitats.js";
+import { walkPose, EYE_HEIGHT } from "./people.js";
 import { PLATFORM_HALF_WIDTH } from "./tram.js";
 
-const EYE = 0.62;
+const EYE = EYE_HEIGHT;
 const GRAVITY = 9;
 
 export class Explorer extends GrObject {
@@ -44,14 +45,14 @@ export class Explorer extends GrObject {
       new T.SphereGeometry(0.16, 14, 10),
       new T.MeshStandardMaterial({ color: 0xcff4ff, transparent: true, opacity: 0.45, metalness: 0.6, roughness: 0.1 })
     );
-    helmet.position.y = 0.6;
-    body.add(helmet);
+    body.getObjectByName("head")?.add(helmet); // follows the head
     const eye = new T.Object3D();
     eye.position.set(0, EYE, 0.05);
     root.add(eye);
     super("Explorer (you)", root);
     this.root = root;
     this.eye = eye;
+    this.body = body;
     this.rideable = eye;
     this.domes = p.domes;
     this.links = p.links;
@@ -189,6 +190,7 @@ export class Explorer extends GrObject {
         this.onGround = false;
       }
       if (inp.fwd || inp.side) this.walkPhase += dt * (inp.run ? 14 : 9);
+      walkPose(this.body, this.walkPhase, inp.fwd || inp.side ? 1 : 0);
     }
     // gravity and landing
     const g = this.groundAt(this.pos.x, this.pos.z, this.pos.y);

@@ -34,6 +34,9 @@ export { makePerson } from "./people.js";
 const ribMat = () => new T.MeshStandardMaterial({ color: 0x6f7d88, metalness: 0.8, roughness: 0.3, envMap: waterEnvMap() });
 
 const FLOOR_Y = 0.46; // dome floor height above the base
+/** size of the arch-shaped openings in the glass for the corridors (half width, height above the floor) */
+const OPEN_W = 0.88;
+const OPEN_H = 1.42;
 
 const FLOORS = { cafeteria: "checker", botany: "pavers", servers: "raised", computers: "lab" };
 const BUILDERS = { cafeteria: buildCafeteria, botany: buildBotany, servers: buildServerRoom, computers: buildComputerLab };
@@ -86,7 +89,7 @@ export class HabitatDome extends GrObject {
     gt.needsUpdate = true;
     gt.repeat.set(Math.round(r * 1.3), Math.max(2, Math.round(r * 0.45)));
     const glass = new T.Mesh(
-      new T.SphereGeometry(r, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+      new T.BufferGeometry(), // built by cutOpenings()
       new T.MeshStandardMaterial({
         map: gt, color: 0xffffff, metalness: 0.85, roughness: 0.05, transparent: true, opacity: 0.42,
         envMap: waterEnvMap(), depthWrite: false, side: T.DoubleSide,
@@ -108,7 +111,11 @@ export class HabitatDome extends GrObject {
       g.translate(0, 0.45 + r * hFrac, 0);
       ribGeos.push(g);
     }
-    root.add(new T.Mesh(mergeGeometries(ribGeos), rm));
+    const ribs = new T.Mesh(new T.BufferGeometry(), rm);
+    root.add(ribs);
+    // arch-shaped metal frames around the openings in the glass
+    const portals = new T.Group();
+    root.add(portals);
 
     // ---------- chasing lights around the base
     const NL = Math.round(r * 6);
@@ -182,13 +189,17 @@ export class HabitatDome extends GrObject {
     top.add(beacon);
 
     // ---------- the interior
-    const inside = BUILDERS[p.type](root, { Y: FLOOR_Y, rng, r });
+    // (in its own group, so it can be hidden when the camera is far away)
+    const interior = new T.Group();
+    root.add(interior);
+    const inside = BUILDERS[p.type](interior, { Y: FLOOR_Y, rng, r });
 
     super(p.name, root);
     this.root = root;
     this.r = r;
     this.type = p.type;
     this.anims = inside.anims;
+    this.interior = interior;
     this.obstacles = inside.obstacles;
     this.spots = inside.spots;
     this.beaconMat = beaconMat;
@@ -206,9 +217,127 @@ export class HabitatDome extends GrObject {
     /** gaps in the glass wall: the station doorway (residents only), plus one
      *  for each corridor to another hub (added by DomeTubes) */
     this.openings = [{ dir: this.doorDir, half: 0.6, residentsOnly: true }];
+    this.glass = glass;
+    this.ribs = ribs;
+    this.portals = portals;
+    this.fullGlass = new T.SphereGeometry(r, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2).toNonIndexed().translate(0, 0.45, 0);
+    this.fullRibs = mergeGeometries(ribGeos).toNonIndexed();
+    this.cutOpenings();
     this.rng = rng;
     this.time = rng() * 10;
     this._c = new T.Color();
+  }
+
+  /**
+   * Is a point (in the dome's frame) inside one of the openings? An opening
+   * is the corridor's arch cross-section pushed out along its direction.
+   * @param {number} x @param {number} y @param {number} z
+   */
+  inOpening(x, y, z) {
+    const h = y - FLOOR_Y;
+    if (h > OPEN_H) return false;
+    for (const o of this.openings) {
+      const fwd = x * o.dir.x + z * o.dir.z;
+      if (fwd <= 0) continue;
+      const lat = x * o.dir.z - z * o.dir.x;
+      if (Math.abs(lat) >= OPEN_W) continue;
+      if (h < OPEN_H * Math.sqrt(1 - (lat / OPEN_W) ** 2)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Cut the openings (the station doorway, and one per corridor to another hub)
+   * out of the glass and the ribs, so the dome doesn't cover the entrances.
+   * The glass is cut cleanly: triangles on the edge of an opening are split
+   * (onto the sphere) until they're small, then dropped if they're inside.
+   * A metal frame along the exact edge of each opening finishes it off.
+   */
+  cutOpenings() {
+    const r = this.r;
+    const C = new T.Vector3(0, 0.45, 0);
+    const pos = this.fullGlass.attributes.position, uv = this.fullGlass.attributes.uv;
+    const outP = [], outN = [], outU = [];
+    const inside = v => this.inOpening(v.x, v.y, v.z);
+    const onSphere = v => v.sub(C).setLength(r).add(C);
+    /** @param {Array<T.Vector3>} P @param {Array<T.Vector2>} U @param {number} depth */
+    const emit = (P, U, depth) => {
+      const ins = P.map(inside);
+      const mid = P[0].clone().add(P[1]).add(P[2]).divideScalar(3);
+      const cIn = inside(mid);
+      const mixed = ins.some(b => b !== cIn) || ins.some(b => b !== ins[0]);
+      if (mixed && depth < 4) {
+        const m = (a, b) => onSphere(P[a].clone().lerp(P[b], 0.5));
+        const mu = (a, b) => U[a].clone().lerp(U[b], 0.5);
+        const p01 = m(0, 1), p12 = m(1, 2), p20 = m(2, 0);
+        const u01 = mu(0, 1), u12 = mu(1, 2), u20 = mu(2, 0);
+        emit([P[0], p01, p20], [U[0], u01, u20], depth + 1);
+        emit([p01, P[1], p12], [u01, U[1], u12], depth + 1);
+        emit([p20, p12, P[2]], [u20, u12, U[2]], depth + 1);
+        emit([p01, p12, p20], [u01, u12, u20], depth + 1);
+        return;
+      }
+      if (cIn) return; // in the opening: no glass here
+      for (let k = 0; k < 3; k++) {
+        outP.push(P[k].x, P[k].y, P[k].z);
+        const n = P[k].clone().sub(C).normalize();
+        outN.push(n.x, n.y, n.z);
+        outU.push(U[k].x, U[k].y);
+      }
+    };
+    for (let i = 0; i < pos.count; i += 3) {
+      const P = [0, 1, 2].map(k => new T.Vector3().fromBufferAttribute(pos, i + k));
+      const U = [0, 1, 2].map(k => new T.Vector2().fromBufferAttribute(uv, i + k));
+      emit(P, U, 0);
+    }
+    const g = new T.BufferGeometry();
+    g.setAttribute("position", new T.Float32BufferAttribute(outP, 3));
+    g.setAttribute("normal", new T.Float32BufferAttribute(outN, 3));
+    g.setAttribute("uv", new T.Float32BufferAttribute(outU, 2));
+    this.glass.geometry.dispose();
+    this.glass.geometry = g;
+
+    // ribs: drop the triangles that cross an opening (the frame hides the cut ends)
+    const rp = this.fullRibs.attributes.position;
+    const keep = [];
+    const a = new T.Vector3(), b = new T.Vector3(), c = new T.Vector3();
+    for (let i = 0; i < rp.count; i += 3) {
+      a.fromBufferAttribute(rp, i); b.fromBufferAttribute(rp, i + 1); c.fromBufferAttribute(rp, i + 2);
+      const m = a.clone().add(b).add(c).divideScalar(3);
+      if (!this.inOpening(m.x, m.y, m.z)) keep.push(i);
+    }
+    const rg = new T.BufferGeometry();
+    for (const name of Object.keys(this.fullRibs.attributes)) {
+      const src = this.fullRibs.attributes[name];
+      const arr = new Float32Array(keep.length * 3 * src.itemSize);
+      keep.forEach((i, j) => {
+        for (let k = 0; k < 3 * src.itemSize; k++) arr[j * 3 * src.itemSize + k] = src.array[i * src.itemSize + k];
+      });
+      rg.setAttribute(name, new T.BufferAttribute(arr, src.itemSize));
+    }
+    this.ribs.geometry.dispose();
+    this.ribs.geometry = rg;
+
+    // frames: a tube along the exact edge where each opening meets the sphere
+    for (const ch of [...this.portals.children]) {
+      /** @type {T.Mesh} */ (ch).geometry.dispose();
+      this.portals.remove(ch);
+    }
+    const frames = [];
+    for (const o of this.openings) {
+      const side = new T.Vector3(o.dir.z, 0, -o.dir.x);
+      const pts = [];
+      for (let k = 0; k <= 24; k++) {
+        const t = (k / 24) * Math.PI;
+        const lat = Math.cos(t) * OPEN_W;
+        const y = FLOOR_Y + Math.sin(t) * OPEN_H;
+        const rho = Math.sqrt(Math.max(0, r * r - (y - 0.45) ** 2));
+        const fwd = Math.sqrt(Math.max(0, rho * rho - lat * lat));
+        pts.push(o.dir.clone().multiplyScalar(fwd).addScaledVector(side, lat).setY(y));
+      }
+      frames.push(new T.TubeGeometry(new T.CatmullRomCurve3(pts), 40, 0.075, 8, false));
+    }
+    if (frames.length) this.portals.add(new T.Mesh(mergeGeometries(frames), this.ribs.material));
   }
 
   /** world point just inside the doorway (on the floor) */
@@ -238,7 +367,8 @@ export class HabitatDome extends GrObject {
     const dt = Math.min(delta, 100) / 1000;
     this.time += dt;
     const t = this.time;
-    for (const a of this.anims) a(t, dt);
+    // the people and machines inside only move while you can see them
+    if (this.interior.visible) for (const a of this.anims) a(t, dt);
     this.fan.rotation.y += dt * 6;
     this.beaconMat.emissiveIntensity = t % 2 < 0.25 ? 3 : 0.2;
     // chasing lights: a bright band runs around the ring; warmer at night
@@ -291,6 +421,8 @@ export class DomeTubes extends GrObject {
       A.openings.push({ dir: u.clone(), half: 0.65 });
       B.openings.push({ dir: u.clone().negate(), half: 0.65 });
     }
+    // now that every dome knows its corridors, cut their openings in the glass
+    for (const d of domes) d.cutOpenings();
     super("Glass Corridors", root);
     this.corridors = corridors;
   }

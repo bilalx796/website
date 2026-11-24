@@ -375,6 +375,7 @@ export class MiningRig extends GrObject {
     this.joints.stick.rotation.x = stick;
     this.joints.bucket.rotation.x = bucket;
     this.root.updateMatrixWorld(true);
+    this.keepAboveSand();
     // re-aim every hydraulic ram between its two mounting points
     const z = new T.Vector3(0, 0, 1);
     for (const r of this.rams) {
@@ -391,6 +392,46 @@ export class MiningRig extends GrObject {
       r.rod.position.copy(B);
       r.rod.quaternion.setFromUnitVectors(z, dir.clone().negate());
       r.rod.scale.set(1, 1, len * 0.6);
+    }
+  }
+
+  /**
+   * The keyframed poses don't know the shape of the sand, so on low ground the
+   * bucket and arm would sink into it. Check points on the bucket and stick
+   * against floorHeight and lift the boom until only the teeth bite in (a little).
+   */
+  keepAboveSand() {
+    const { boom, stick, bucket } = this.joints;
+    if (!this._probes) {
+      /** @type {Array<{obj: T.Object3D, p: T.Vector3, allow: number}>} */
+      this._probes = [];
+      for (const x of [-0.38, 0, 0.38]) this._probes.push({ obj: bucket, p: new T.Vector3(x, -0.76, 0.68), allow: 0.12 }); // teeth
+      for (const x of [-0.43, 0.43]) {
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          this._probes.push({ obj: bucket, p: new T.Vector3(x, -0.2 + Math.sin(a) * 0.5, 0.35 + Math.cos(a) * 0.5), allow: 0 });
+        }
+      }
+      for (let z = 0; z <= 2.2; z += 0.55) this._probes.push({ obj: stick, p: new T.Vector3(0, -0.16, z), allow: 0 });
+      this._probeW = new T.Vector3();
+    }
+    const w = /** @type {T.Vector3} */ (this._probeW);
+    const pivot = boom.getWorldPosition(new T.Vector3());
+    for (let iter = 0; iter < 6; iter++) {
+      let worst = 0, reach = 1;
+      for (const pr of this._probes) {
+        w.copy(pr.p);
+        pr.obj.localToWorld(w);
+        const pen = floorHeight(w.x, w.z) - pr.allow - w.y;
+        if (pen > worst) {
+          worst = pen;
+          reach = Math.max(1, Math.hypot(w.x - pivot.x, w.z - pivot.z));
+        }
+      }
+      if (worst < 0.005) break;
+      // raising the boom by d lifts a point `reach` away by about reach * d
+      boom.rotation.x -= worst / reach + 0.002;
+      boom.updateMatrixWorld(true);
     }
   }
 

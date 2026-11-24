@@ -23,6 +23,7 @@
 
 import * as T from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { texturePack, polypTexture } from "./materials.js";
 import { GrObject } from "CS559-Framework/GrObject.js";
 import { floorHeight } from "./terrain.js";
 import { isFree } from "./placement.js";
@@ -190,7 +191,16 @@ export class CoralGardens extends GrObject {
     templates.forEach((t, ti) => {
       const list = perTemplate[ti];
       if (list.length === 0) return;
-      const mat = new T.MeshStandardMaterial({ color: 0xffffff, roughness: 0.75, bumpMap: bump, bumpScale: 2, side: t.kind === "fan" || t.kind === "tube" ? T.DoubleSide : T.FrontSide });
+      // polyp cups (canvas texture) tinted by each coral's instance color, and the
+      // pitted grain of a CC0 sponge normal map (ambientCG Sponge001)
+      const rep = t.kind === "brain" ? 2 : 4;
+      const pores = texturePack("Sponge001", rep, rep);
+      const polyps = polypTexture().clone();
+      polyps.repeat.set(rep * 0.75, rep * 0.75);
+      const mat = new T.MeshStandardMaterial({
+        color: 0xffffff, map: polyps, normalMap: pores.normalMap, normalScale: new T.Vector2(2.2, 2.2),
+        roughness: 0.85, bumpMap: bump, bumpScale: 1.5, side: t.kind === "fan" || t.kind === "tube" ? T.DoubleSide : T.FrontSide,
+      });
       const mesh = new T.InstancedMesh(t.geo, mat, list.length);
       const base = [];
       list.forEach(([x, z], i) => {

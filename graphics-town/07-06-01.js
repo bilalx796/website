@@ -44,12 +44,15 @@ import { BeaconTower } from "./objects/beacon.js";
 import { CoralGardens } from "./objects/coral.js";
 import { KelpForest } from "./objects/kelp.js";
 import { Rocks } from "./objects/rocks.js";
+import { Mountains } from "./objects/mountains.js";
 import { makeReefUI } from "./objects/reefUI.js";
 import { FreeCamera, relabelCameraMenu, switchToFreeCamera } from "./objects/freeCamera.js";
 import { Explorer, WalkController } from "./objects/explorer.js";
 import { wrapCanvas, makeZoomBar, hideWorldUIRows } from "./objects/overlay.js";
 import { PilotController } from "./objects/pilot.js";
 import { SharkFrenzy } from "./objects/game.js";
+import { addSphere, addCylinder, addPath, addBox } from "./objects/colliders.js";
+import { makePerformanceGovernor } from "./objects/performance.js";
 
 /**
  * The framework's "View Solo Object" and "LookAt (highlighted)" controls are
@@ -82,6 +85,7 @@ if (div) {
     const floor = new SeaFloor();
     world.add(floor);
     world.add(new Rocks());
+    world.add(new Mountains(world));
     const coral = new CoralGardens();
     world.add(coral);
     const kelp = new KelpForest();
@@ -140,6 +144,43 @@ if (div) {
     const rig = new MiningRig(MINING_RIG[0], MINING_RIG[1], /** @type {[number, number]} */ (SPOIL_HEAP));
     world.add(rig);
 
+    // ---- make the facility solid for the animals you pilot (see colliders.js)
+    for (const d of domes) {
+        const p = d.root.position;
+        addSphere(new T.Vector3(p.x, p.y + 0.45, p.z), d.r + 0.1); // glass dome
+        addCylinder(p.x, p.z, 0.5, p.y + d.r, p.y + d.r + 0.9); // vent housing on top
+    }
+    for (const c of [...tubes.corridors, ...links]) addPath(c.walk, 0.9, 0.7, 1.5); // glass corridors
+    {
+        const pts = [];
+        for (let s = 0; s <= track.spline.length; s += 0.8) {
+            const p = track.spline.atDistance(s).pos;
+            pts.push(new T.Vector3(p[0], p[1], p[2]));
+        }
+        addPath(pts, 0.85, 1.5, 0.35); // rails and ties (the car itself is a box below)
+    }
+    for (const ch of /** @type {any} */ (track).objects[0].children) if (/** @type {any} */ (ch).isGroup) addBox(ch); // stations
+    addBox(tram.root); // follows the tram car as it moves
+    addBox(dock.root);
+    {
+        // the tower itself (its bounding box would include the light beam)
+        const bp = beacon.root.position;
+        addCylinder(bp.x, bp.z, 1.55, bp.y - 2, bp.y + 12.5);
+    }
+    for (const ch of wreck.root.children) if (/** @type {any} */ (ch).isGroup) addBox(ch); // the tilted hull
+    // the rig: undercarriage, turret, and the moving boom, stick and bucket
+    {
+        const { turret, boom, stick, bucket } = rig.joints;
+        const ramMeshes = rig.rams.flatMap(r => [r.barrel, r.rod]);
+        addBox(rig.root, [turret, rig.heapMesh, ...ramMeshes]);
+        addBox(turret, [boom, ...ramMeshes]);
+        addBox(boom, [stick, ...ramMeshes]);
+        addBox(stick, [bucket, ...ramMeshes]);
+        addBox(bucket);
+        const hp = rig.heapMesh.getWorldPosition(new T.Vector3());
+        addCylinder(hp.x, hp.z, 1.8, hp.y - 1, hp.y + 1.2);
+    }
+
     // ---- creatures
     const school = new FishSchool();
     world.add(school);
@@ -171,6 +212,10 @@ if (div) {
     // ---- effects
     const vents = new HydrothermalVents(/** @type {Array<[number, number]>} */ (VENTS));
     world.add(vents);
+    for (const ch of /** @type {any} */ (vents).objects[0].children) {
+        const g = /** @type {any} */ (ch).geometry;
+        if (g?.parameters?.radiusBottom === 1.1) addCylinder(ch.position.x, ch.position.z, 0.8, ch.position.y - g.parameters.height / 2, ch.position.y + g.parameters.height / 2); // chimneys
+    }
     const wreckLeak = new T.Vector3(WRECK[0] + 1, 3, WRECK[1]);
     const domeTops = domes.map(d => {
         const p = d.root.position;
@@ -229,9 +274,14 @@ if (div) {
         sidebar.appendChild(gui);
     }
     makeReefUI({ world, school, shark, manta, freeCam, pilot, game, floorMesh: /** @type {T.Mesh} */ (floor.objects[0]), where: sidebar });
+    // speed: adaptive resolution, no drawing while scrolled away, and the dome
+    // interiors are only drawn (and animated) when the camera is near enough to see them
+    const perf = makePerformanceGovernor(world);
+    for (const d of domes) perf.cullByDistance(d.interior, d.root.position, 80);
     // cameras and screen effects update every frame, even while the world is paused
     world.go({
         predraw: () => {
+            perf.update();
             freeCam.update();
             pilot.update();
             walker.update();

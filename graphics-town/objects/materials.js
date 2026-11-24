@@ -426,16 +426,105 @@ export function deckTexture() {
 /**
  * CC0 texture sets from ambientCG (https://ambientcg.com), resized to 512 px:
  * Ground054 (sand), Rock063, Planks037A, Concrete034, DiamondPlate008A,
- * MetalPlates004. Each has a color map and an OpenGL-style normal map.
- * @param {"Ground054"|"Rock063"|"Planks037A"|"Concrete034"|"DiamondPlate008A"|"MetalPlates004"} name
+ * MetalPlates004, Sponge001 (coral pores), Leather037 (shark / manta skin),
+ * CorrugatedSteel009, Rubber004, Tiles107, Rock064 (mountains).
+ * Each has a color map and an OpenGL-style normal map.
+ * @param {"Ground054"|"Rock063"|"Planks037A"|"Concrete034"|"DiamondPlate008A"|"MetalPlates004"|"Sponge001"|"Leather037"|"CorrugatedSteel009"|"Rubber004"|"Tiles107"|"Rock064"} name
  * @param {number} [rx=1] @param {number} [ry=1] - how many times it repeats
  */
+/**
+ * Mottled skin: near-white with soft darker blotches and fine speckles. Used as
+ * a color map on top of vertex colors (it multiplies them), so the shark and
+ * manta keep their countershading but don't look like smooth plastic.
+ * @param {number} [seed=1]
+ */
+export function skinMottleTexture(seed = 1) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+  g.fillStyle = "#f4f4f4";
+  g.fillRect(0, 0, 256, 256);
+  let s = seed * 9301 + 49297;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  // soft blotches (drawn 9 times, offset by the tile size, so the texture tiles seamlessly)
+  for (let k = 0; k < 70; k++) {
+    const x = rnd() * 256, y = rnd() * 256, r = 8 + rnd() * 26, a = 0.05 + rnd() * 0.08;
+    for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) {
+      const grd = g.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, r);
+      grd.addColorStop(0, `rgba(40,50,60,${a})`);
+      grd.addColorStop(1, "rgba(40,50,60,0)");
+      g.fillStyle = grd;
+      g.fillRect(x + ox - r, y + oy - r, r * 2, r * 2);
+    }
+  }
+  // fine speckles
+  for (let k = 0; k < 1400; k++) {
+    g.fillStyle = `rgba(30,40,50,${0.05 + rnd() * 0.12})`;
+    g.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 1.5, 1 + rnd() * 1.5);
+  }
+  const t = new T.CanvasTexture(c);
+  t.colorSpace = T.SRGBColorSpace;
+  t.wrapS = t.wrapT = T.RepeatWrapping;
+  return t;
+}
+
+/**
+ * Coral polyps: a pale surface covered in little cups (a dark pit with a light
+ * rim), drawn tiled so it repeats seamlessly. Multiplies each coral's color.
+ */
+let polypTex = null;
+export function polypTexture() {
+  if (polypTex) return polypTex;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const g = /** @type {CanvasRenderingContext2D} */ (c.getContext("2d"));
+  g.fillStyle = "#e9e4dc";
+  g.fillRect(0, 0, 256, 256);
+  let s = 4242;
+  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280);
+  for (let k = 0; k < 260; k++) {
+    const x = rnd() * 256, y = rnd() * 256, r = 3 + rnd() * 5;
+    for (const ox of [-256, 0, 256]) for (const oy of [-256, 0, 256]) {
+      const cx = x + ox, cy = y + oy;
+      if (cx < -10 || cx > 266 || cy < -10 || cy > 266) continue;
+      g.fillStyle = "rgba(255,255,255,0.55)"; // rim
+      g.beginPath(); g.arc(cx, cy, r * 1.35, 0, Math.PI * 2); g.fill();
+      const grd = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+      grd.addColorStop(0, "rgba(60,30,40,0.75)"); // pit
+      grd.addColorStop(1, "rgba(120,90,90,0.15)");
+      g.fillStyle = grd;
+      g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+    }
+  }
+  polypTex = new T.CanvasTexture(c);
+  polypTex.colorSpace = T.SRGBColorSpace;
+  polypTex.wrapS = polypTex.wrapT = T.RepeatWrapping;
+  return polypTex;
+}
+
+const packCache = new Map();
 export function texturePack(name, rx = 1, ry = 1) {
-  const loader = new T.TextureLoader();
-  const map = loader.load(`./textures/${name}_Color.jpg`);
-  map.colorSpace = T.SRGBColorSpace;
-  const normalMap = loader.load(`./textures/${name}_NormalGL.jpg`);
+  // each image is downloaded once; every use gets its own clone (own repeat),
+  // and clones share the image, so it's uploaded to the GPU only once too
+  let base = packCache.get(name);
+  if (!base) {
+    const loader = new T.TextureLoader();
+    /** @type {{map: T.Texture, normalMap: T.Texture, clones: Array<T.Texture>}} */
+    const b = { map: new T.Texture(), normalMap: new T.Texture(), clones: [] };
+    // once an image arrives, every clone made from it needs uploading
+    const loaded = () => b.clones.forEach(c => { if (c.image) c.needsUpdate = true; });
+    b.map = loader.load(`./textures/${name}_Color.jpg`, loaded);
+    b.normalMap = loader.load(`./textures/${name}_NormalGL.jpg`, loaded);
+    b.map.colorSpace = T.SRGBColorSpace;
+    base = b;
+    packCache.set(name, base);
+  }
+  const map = base.map.clone();
+  const normalMap = base.normalMap.clone();
   for (const t of [map, normalMap]) {
+    // clone() marks the copy for upload; wait until the image has loaded
+    if (!t.image) t.version = 0;
+    base.clones.push(t);
     t.wrapS = t.wrapT = T.RepeatWrapping;
     t.repeat.set(rx, ry);
   }

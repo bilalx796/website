@@ -23,9 +23,16 @@ import { GrObject } from "CS559-Framework/GrObject.js";
 import { ClosedCardinalSpline } from "./util/curves.js";
 import { addSkinWeights, cleanGeo, paint, ramp } from "./util/skin.js";
 import { pilotStep } from "./pilot.js";
+import { texturePack, skinMottleTexture } from "./materials.js";
 
 /** how the manta handles when you pilot it */
-const MANTA_PILOT = { cruise: 5.5, fast: 5.5, slow: 5.5, sprint: 9.5, turnRate: 1.5 };
+/** spheres across the body and wings that can't go into the buildings */
+const MANTA_BODY = [
+  { forward: 0.4, side: 0, r: 0.7 }, { forward: -1.2, side: 0, r: 0.4 },
+  { forward: 0, side: 1.6, r: 0.5 }, { forward: 0, side: -1.6, r: 0.5 },
+  { forward: -0.3, side: 2.8, r: 0.55 }, { forward: -0.3, side: -2.8, r: 0.55 },
+];
+const MANTA_PILOT = { cruise: 5.5, fast: 5.5, slow: 5.5, sprint: 9.5, turnRate: 1.5, body: MANTA_BODY };
 
 const W = 3.2; // half wingspan
 
@@ -74,7 +81,10 @@ function bodyGeometry() {
   const g = new T.BufferGeometry();
   g.setAttribute("position", new T.Float32BufferAttribute(pos, 3));
   g.setAttribute("color", new T.Float32BufferAttribute(col, 3));
-  g.setAttribute("uv", new T.Float32BufferAttribute(new Array((pos.length / 3) * 2).fill(0), 2));
+  // uv: a top-down projection of the planform (x across the wings, z along the body)
+  const uv = [];
+  for (let i = 0; i < pos.length; i += 3) uv.push((pos[i] + W) / (2 * W), (pos[i + 2] + 3) / 6);
+  g.setAttribute("uv", new T.Float32BufferAttribute(uv, 2));
   g.setIndex(idx);
   g.computeVertexNormals();
   return g.toNonIndexed();
@@ -125,7 +135,15 @@ export class MantaRay extends GrObject {
     const ri = bone(body, -0.6, 0, 0);
     const ro = bone(ri, -1.2, 0, 0);
     const tb = bone(body, 0, 0, -1.2);
-    const mesh = new T.SkinnedMesh(geo, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, side: T.DoubleSide }));
+    // skin: top/bottom colors (vertex colors) x a mottled color map, plus the grain of a
+    // CC0 leather normal map (ambientCG Leather037)
+    const skinTex = texturePack("Leather037", 6, 6);
+    const mottle = skinMottleTexture(7);
+    mottle.repeat.set(2, 2);
+    const mesh = new T.SkinnedMesh(geo, new T.MeshStandardMaterial({
+      vertexColors: true, map: mottle, normalMap: skinTex.normalMap, normalScale: new T.Vector2(0.45, 0.45),
+      roughness: 0.62, side: T.DoubleSide,
+    }));
     mesh.add(body);
     mesh.bind(new T.Skeleton(bones));
     mesh.frustumCulled = false;

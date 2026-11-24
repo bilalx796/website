@@ -38,9 +38,16 @@ import { floorHeight } from "./terrain.js";
 import { reef } from "./reefState.js";
 import { addSkinWeights } from "./util/skin.js";
 import { pilotStep } from "./pilot.js";
+import { pushOut } from "./colliders.js";
+import { texturePack, skinMottleTexture } from "./materials.js";
 
 /** how the shark handles when you pilot it */
-const SHARK_PILOT = { cruise: 7.5, fast: 7.5, slow: 7.5, sprint: 13.5, turnRate: 2.4 };
+/** spheres along the body (nose to tail fin) that can't go into the buildings */
+const SHARK_BODY = [
+  { forward: 2.4, side: 0, r: 0.35 }, { forward: 1.2, side: 0, r: 0.6 }, { forward: -0.4, side: 0, r: 0.6 },
+  { forward: -2.0, side: 0, r: 0.42 }, { forward: -3.5, side: 0, r: 0.5 },
+];
+const SHARK_PILOT = { cruise: 7.5, fast: 7.5, slow: 7.5, sprint: 13.5, turnRate: 2.4, body: SHARK_BODY };
 
 const Z_TAIL = -3.3; // where the body ends (the tail fin attaches here)
 const Z_NOSE = 2.7;
@@ -113,7 +120,15 @@ export class Shark extends GrObject {
    * @param {Array<[number, number, number]>} p.route
    */
   constructor(p) {
-    const skinMat = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.1 });
+    // skin: countershading (vertex colors) x a mottled color map, with the fine
+    // grain of a CC0 leather normal map (ambientCG Leather037) for the dermal denticles
+    const skinTex = texturePack("Leather037", 5, 9);
+    const mottle = skinMottleTexture(3);
+    mottle.repeat.set(2, 3);
+    const skinMat = new T.MeshStandardMaterial({
+      vertexColors: true, map: mottle, normalMap: skinTex.normalMap, normalScale: new T.Vector2(0.35, 0.35),
+      roughness: 0.48, metalness: 0.08,
+    });
     const finMat = new T.MeshStandardMaterial({ color: 0x51647a, roughness: 0.45, metalness: 0.1, side: T.DoubleSide });
     const darkMat = new T.MeshStandardMaterial({ color: 0x2a3640, roughness: 0.6 });
     const eyeMat = new T.MeshStandardMaterial({ color: 0x050607, roughness: 0.1, metalness: 0.5 });
@@ -359,6 +374,7 @@ export class Shark extends GrObject {
     this.heading.y = Math.max(-0.4, Math.min(0.4, this.heading.y));
     this.heading.normalize();
     this.pos.addScaledVector(this.heading, this.speed * dt);
+    pushOut(this.pos, this.heading, SHARK_BODY);
     const fh = floorHeight(this.pos.x, this.pos.z) + 2;
     if (this.pos.y < fh) this.pos.y = fh;
 

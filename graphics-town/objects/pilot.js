@@ -19,12 +19,14 @@
 import * as T from "three";
 import { floorHeight } from "./terrain.js";
 import { switchToFreeCamera } from "./freeCamera.js";
+import { pushOut } from "./colliders.js";
 
 const UP = new T.Vector3(0, 1, 0);
 
 /**
  * @typedef {{throttle: number, turn: number, climb: number, sprint: boolean}} PilotInput
- * @typedef {{cruise: number, fast: number, slow: number, sprint: number, turnRate: number}} PilotOptions
+ * @typedef {{cruise: number, fast: number, slow: number, sprint: number, turnRate: number,
+ *   body?: Array<import("./colliders.js").BodyPoint>}} PilotOptions
  */
 
 /**
@@ -50,6 +52,8 @@ export function pilotStep(s, inp, dt, o) {
   if (inp.sprint) target = o.sprint;
   s.speed += (target - s.speed) * Math.min(1, dt * 2);
   s.pos.addScaledVector(s.heading, s.speed * dt);
+  // the facility is solid: slide along the domes, corridors, tram, dock...
+  if (o.body) pushOut(s.pos, s.heading, o.body);
   // stay in the water: above the floor, below the surface, inside the reef
   const fh = floorHeight(s.pos.x, s.pos.z) + 1.6;
   if (s.pos.y < fh) {
