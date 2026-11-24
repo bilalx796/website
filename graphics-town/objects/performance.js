@@ -17,7 +17,7 @@
  *
  * Elsewhere: people, coral, fish, rocks and anemones are instanced or merged so
  * one material draws many objects at once; textures are loaded once and shared
- * (texturePack); the mountains are a single mesh.
+ * (texturePack).
  */
 
 import * as T from "three";

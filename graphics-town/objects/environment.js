@@ -19,7 +19,7 @@ import { updateGlowMaterials } from "./materials.js";
 
 const DAY_WATER = new T.Color(0x1680a3);
 const DUSK_WATER = new T.Color(0x0c3d68);
-const NIGHT_WATER = new T.Color(0x020a18);
+const NIGHT_WATER = new T.Color(0x07203d); // deep blue, not black, so the night stays readable
 const BLOOD_WATER = new T.Color(0x4a0508);
 
 /** a vertical gradient texture: bright at the top, transparent at the bottom */
@@ -198,13 +198,13 @@ export class ReefEnvironment extends GrObject {
     // Shark Frenzy: the water turns blood red
     if (reef.blood > 0) this.waterColor.lerp(BLOOD_WATER, reef.blood * 0.75);
     this.fog.color.copy(this.waterColor);
-    this.fog.density = 0.015 + 0.01 * (1 - d) + 0.012 * reef.blood;
+    this.fog.density = 0.015 + 0.005 * (1 - d) + 0.012 * reef.blood;
 
-    this.hemi.intensity = 0.12 + 1.15 * d;
+    this.hemi.intensity = 0.4 + 0.87 * d;
     this.hemi.color.setRGB(0.55 + 0.1 * d, 0.75 + 0.18 * d, 1.0);
-    this.sun.intensity = 0.15 + 1.7 * d;
+    this.sun.intensity = 0.5 + 1.35 * d;
     this.sun.color.setRGB(0.6 + 0.25 * d, 0.75 + 0.22 * d, 1.0); // bluish moonlight at night
-    this.ambient.intensity = 0.25 + 0.3 * d;
+    this.ambient.intensity = 0.42 + 0.13 * d;
 
     for (const r of this.rayList) {
       /** @type {T.MeshBasicMaterial} */ (r.mesh.material).opacity = 0.06 * d;
@@ -220,5 +220,34 @@ export class ReefEnvironment extends GrObject {
 
   lookFromLookAt() {
     return [0, 30, 62, 0, 4, 0];
+  }
+}
+
+/**
+ * Night lighting for the facility: warm floodlights over each hub and at the
+ * dock and the mining rig. They fade in as the reef gets dark (reef.night), so
+ * the town glows at night while the daytime look is unchanged. Only a handful
+ * of point lights, each with a limited reach, to keep the cost down.
+ */
+export class NightLights extends GrObject {
+  /** @param {Array<{pos: T.Vector3, color?: number, power?: number, reach?: number}>} spots */
+  constructor(spots) {
+    const group = new T.Group();
+    const lights = spots.map(s => {
+      const l = new T.PointLight(s.color ?? 0xffd9a0, 0, s.reach ?? 24, 1);
+      l.position.copy(s.pos);
+      group.add(l);
+      return { light: l, power: s.power ?? 9 };
+    });
+    super("Night Lights", group);
+    this.lights = lights;
+  }
+
+  stepWorld() {
+    const n = reef.night;
+    for (const { light, power } of this.lights) {
+      // (always "visible": switching lights on/off would recompile every shader)
+      light.intensity = power * n;
+    }
   }
 }

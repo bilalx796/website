@@ -27,7 +27,7 @@ import { MorayEel } from "./objects/eel.js";
 import { MiningRig } from "./objects/miningRig.js";
 import { HydrothermalVents, Bubbles, MarineSnow, Anemones } from "./objects/effects.js";
 import { reef } from "./objects/reefState.js";
-import { ReefEnvironment } from "./objects/environment.js";
+import { ReefEnvironment, NightLights } from "./objects/environment.js";
 import { SeaFloor } from "./objects/seafloor.js";
 import { Submarine } from "./objects/submarine.js";
 import { DockingStation } from "./objects/dock.js";
@@ -44,7 +44,6 @@ import { BeaconTower } from "./objects/beacon.js";
 import { CoralGardens } from "./objects/coral.js";
 import { KelpForest } from "./objects/kelp.js";
 import { Rocks } from "./objects/rocks.js";
-import { Mountains } from "./objects/mountains.js";
 import { makeReefUI } from "./objects/reefUI.js";
 import { FreeCamera, relabelCameraMenu, switchToFreeCamera } from "./objects/freeCamera.js";
 import { Explorer, WalkController } from "./objects/explorer.js";
@@ -85,7 +84,6 @@ if (div) {
     const floor = new SeaFloor();
     world.add(floor);
     world.add(new Rocks());
-    world.add(new Mountains(world));
     const coral = new CoralGardens();
     world.add(coral);
     const kelp = new KelpForest();
@@ -180,6 +178,13 @@ if (div) {
         const hp = rig.heapMesh.getWorldPosition(new T.Vector3());
         addCylinder(hp.x, hp.z, 1.8, hp.y - 1, hp.y + 1.2);
     }
+
+    // ---- night lighting: warm floodlights over the hubs, the dock and the rig
+    world.add(new NightLights([
+        ...domes.map(d => ({ pos: d.root.position.clone().add(new T.Vector3(0, d.r + 2.5, 0)), power: 7 + d.r, reach: 14 + d.r * 2 })),
+        { pos: dock.root.position.clone().add(new T.Vector3(0, 3, 0)), power: 8, reach: 18 },
+        { pos: rig.root.position.clone().add(new T.Vector3(0, 5, 0)), color: 0xfff2c8, power: 8, reach: 18 },
+    ]));
 
     // ---- creatures
     const school = new FishSchool();

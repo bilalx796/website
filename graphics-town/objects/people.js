@@ -4,7 +4,7 @@
  * A person stands with their feet at the origin and faces +z.
  *
  * Parts (all jointed, so people can walk and sit):
- *   upper  - torso with a neck (and coat / clipboard), the head (hair, eyes,
+ *   upper  - torso with a neck (and coat / clipboard), the head (hair,
  *            optional chef hat) and two arms that swing at the shoulders
  *   legs   - two legs: a thigh hinged at the hip and a shin + shoe hinged at
  *            the knee
@@ -34,8 +34,8 @@ const SHOE = 0x1c1c1e;
 let count = 0;
 
 /** leg sizes: the hip is HIP above the feet when standing */
-const THIGH = 0.3;
-const SHIN = 0.26;
+const THIGH = 0.19;
+const SHIN = 0.16;
 const HIP = THIGH + SHIN + 0.04;
 const SHOULDER_Y = 0.45; // in the upper body's frame (torso bottom at 0)
 
@@ -94,53 +94,15 @@ function torsoGeo(shirt, skin, coat, clipboard) {
   });
 }
 
-/**
- * Facial expressions: [mouth, brows]
- *  mouth: "smile" | "grin" | "flat" | "frown" | "o"
- *  brows: tilt of the eyebrows (+ = worried / surprised up in the middle, - = cross)
- */
-const EXPRESSIONS = /** @type {const} */ ([
-  ["smile", 0], ["grin", 0.15], ["flat", 0], ["frown", 0.35], ["o", 0.25],
-  ["smile", -0.1], ["flat", -0.4], ["grin", 0], ["smile", 0.3],
-]);
-
-/** a curved mouth: an arc of a thin torus, curving up (smile) or down (frown) */
-function mouthGeo(kind) {
-  const lip = 0x7a2e2a;
-  const z = 0.084, y = -0.04;
-  if (kind === "o") return [paint(new T.TorusGeometry(0.014, 0.005, 6, 12).translate(0, y, z + 0.002), lip)];
-  if (kind === "flat") return [paint(new T.BoxGeometry(0.04, 0.007, 0.008).translate(0, y, z), lip)];
-  const r = kind === "grin" ? 0.03 : 0.026;
-  const arc = kind === "grin" ? 1.6 : 1.2;
-  const m = new T.TorusGeometry(r, 0.0045, 5, 10, arc);
-  m.rotateZ(-Math.PI / 2 - arc / 2); // centered at the bottom of the circle: a smile
-  if (kind === "frown") m.rotateZ(Math.PI);
-  m.translate(0, y + (kind === "frown" ? -r + 0.004 : r - 0.004), z - 0.004);
-  const out = [paint(m, lip)];
-  if (kind === "grin") out.push(paint(new T.BoxGeometry(0.03, 0.008, 0.004).translate(0, y + 0.002, z - 0.002), 0xffffff)); // teeth
-  return out;
-}
-
-function headGeo(skin, hair, chefHat, expr) {
-  return cached(`head${skin}|${hair}|${chefHat}|${expr}`, () => {
+function headGeo(skin, hair, chefHat) {
+  return cached(`head${skin}|${hair}|${chefHat}`, () => {
     const parts = [];
-    const [mouth, brow] = EXPRESSIONS[expr % EXPRESSIONS.length];
     parts.push(paint(new T.SphereGeometry(0.09, 14, 10).scale(0.95, 1.05, 1), skin));
     // hair: the top and back of the head
     const h = new T.SphereGeometry(0.096, 14, 8, 0, Math.PI * 2, 0, Math.PI * 0.55);
     h.rotateX(-0.35);
     h.translate(0, 0.008, -0.006);
     parts.push(paint(h, hair));
-    for (const sx of [-0.032, 0.032]) {
-      parts.push(paint(new T.SphereGeometry(0.012, 8, 6).scale(1, 0.85, 0.35).translate(sx, 0.012, 0.081), 0xf4f1ea)); // eye white
-      parts.push(paint(new T.SphereGeometry(0.0075, 6, 4).scale(1, 1, 0.5).translate(sx, 0.011, 0.085), 0x1a1410)); // pupil
-      // eyebrow, tilted by the expression
-      const b = new T.BoxGeometry(0.03, 0.006, 0.006).rotateZ(sx > 0 ? -brow : brow);
-      parts.push(paint(b.translate(sx, 0.038 + Math.abs(brow) * 0.008, 0.082), hair));
-    }
-    parts.push(...mouthGeo(mouth));
-    parts.push(paint(new T.SphereGeometry(0.016, 6, 4).scale(0.8, 1, 1).translate(0, -0.012, 0.09), skin)); // nose
-    for (const sx of [-0.09, 0.09]) parts.push(paint(new T.SphereGeometry(0.02, 6, 4).scale(0.5, 1, 0.8).translate(sx, 0, 0), skin)); // ears
     if (chefHat) {
       parts.push(paint(new T.CylinderGeometry(0.09, 0.08, 0.13, 12).translate(0, 0.13, 0), 0xffffff));
       parts.push(paint(new T.SphereGeometry(0.1, 10, 6).scale(1, 0.6, 1).translate(0, 0.21, 0), 0xffffff));
@@ -193,9 +155,7 @@ export function makePerson(shirt, opts = {}) {
   const body = new T.Mesh(torsoGeo(shirt, skin, coat, !!opts.clipboard), mat);
   body.name = "body";
   upper.add(body);
-  // a random expression (deterministic per person, so it's the same every load)
-  const expr = Math.floor(((Math.sin(count * 12.9898) * 43758.5453) % 1 + 1) % 1 * EXPRESSIONS.length);
-  const head = new T.Mesh(headGeo(skin, hair, !!opts.chefHat, expr), mat);
+  const head = new T.Mesh(headGeo(skin, hair, !!opts.chefHat), mat);
   head.position.y = 0.6;
   head.name = "head";
   upper.add(head);

@@ -427,9 +427,9 @@ export function deckTexture() {
  * CC0 texture sets from ambientCG (https://ambientcg.com), resized to 512 px:
  * Ground054 (sand), Rock063, Planks037A, Concrete034, DiamondPlate008A,
  * MetalPlates004, Sponge001 (coral pores), Leather037 (shark / manta skin),
- * CorrugatedSteel009, Rubber004, Tiles107, Rock064 (mountains).
+ * CorrugatedSteel009, Rubber004, Tiles107.
  * Each has a color map and an OpenGL-style normal map.
- * @param {"Ground054"|"Rock063"|"Planks037A"|"Concrete034"|"DiamondPlate008A"|"MetalPlates004"|"Sponge001"|"Leather037"|"CorrugatedSteel009"|"Rubber004"|"Tiles107"|"Rock064"} name
+ * @param {"Ground054"|"Rock063"|"Planks037A"|"Concrete034"|"DiamondPlate008A"|"MetalPlates004"|"Sponge001"|"Leather037"|"CorrugatedSteel009"|"Rubber004"|"Tiles107"} name
  * @param {number} [rx=1] @param {number} [ry=1] - how many times it repeats
  */
 /**

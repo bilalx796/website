@@ -244,7 +244,7 @@ export function buildCafeteria(root, { Y, rng }) {
   for (let k = 0; k < 7; k++) {
     const p = makePerson(shirts[k]);
     const tray = new T.Mesh(new T.BoxGeometry(0.22, 0.02, 0.16), mat(0x5a6a7a));
-    tray.position.set(0, 0.82, 0.32);
+    tray.position.set(0, 0.62, 0.3);
     tray.visible = false;
     p.add(tray);
     root.add(p);
@@ -306,7 +306,7 @@ export function buildCafeteria(root, { Y, rng }) {
         if (head) head.position.y = 0.6 - 0.025 * Math.max(0, Math.sin(t * 5 + p.id));
         if (d.timer <= 0) {
           setSeated(p, null);
-          d.tray.position.set(0, 0.82, 0.32);
+          d.tray.position.set(0, 0.62, 0.3);
           d.seat.taken = false;
           d.tray.visible = false;
           d.path = [new T.Vector3(d.seat.lane, Y, d.seat.seat.z), new T.Vector3(d.seat.lane, Y, -1.2), new T.Vector3(-3.0, Y, -1.2), new T.Vector3(-3.0, Y, lineZ)];

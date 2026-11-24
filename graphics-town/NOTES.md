@@ -19,7 +19,8 @@ python3 -m http.server 8000
 The page needs a WebGPU-capable browser (recent Chrome, Edge or Safari). Three.js
 falls back to WebGL2 when WebGPU isn't available.
 
-**To submit:** copy `07-06-01.html`, `07-06-01.js` and the `objects/` folder into the
+**To submit:** copy `07-06-01.html`, `07-06-01.js`, the `objects/` folder and the
+`textures/` folder into the
 Workbook 7 repo, which has its own `libs/`. All paths are relative, so it works there
 too. Then clone the pushed repo to a fresh folder and test it before the deadline.
 
@@ -172,6 +173,69 @@ Yes, written in TSL (required by the WebGPU renderer). They're in `objects/shade
   (`SHOW_GRADER_CONTROLS` in `07-06-01.js`). **Turn it back on before submitting**: the
   rubric checks highlighting.
 
+## Latest features (add these to the form and videos)
+- **Solid structures** (`objects/colliders.js`): the shark and manta can't swim through
+  the facility anymore.
+  - Structures are simple shapes: spheres (dome glass), vertical cylinders (beacon, vents,
+    corridor and track samples) and oriented boxes (stations, dock, wreck, tram car, the
+    rig's boom, stick and bucket).
+  - Oriented boxes are stored in the object's own frame and re-read every frame, so moving
+    things (the tram, the excavator's arm) stay solid where they are now.
+  - Each animal is a few spheres along its body (nose to tail; across the manta's wings).
+    Overlaps push the animal out, and the part of its heading that points into the wall is
+    removed, so it slides along instead of stopping dead.
+- **Excavator stays out of the sand** (`keepAboveSand` in `objects/miningRig.js`): the
+  keyframed poses don't know the terrain, so after each pose update, probe points on the
+  bucket and stick are checked against `floorHeight`. If any is underground, the boom is
+  raised (by about penetration ÷ reach, a few iterations). Only the teeth may bite in a
+  little.
+- **Openings cut in the dome glass** (`cutOpenings` in `objects/habitats.js`): the
+  hemisphere used to cover the corridor and walkway entrances.
+  - Each opening is the corridor's arch cross-section pushed out along its direction.
+  - Glass triangles on the edge of an opening are split recursively (new points pushed
+    back onto the sphere) until small, then dropped if inside. That gives a clean edge
+    from a coarse sphere.
+  - Rib triangles crossing an opening are dropped, and a metal frame (a tube along the
+    exact sphere and arch intersection curve) finishes each opening.
+- **Better people** (`objects/people.js`):
+  - Jointed bodies: torso, head with hair, arms at the shoulders, thighs at the hips,
+    shins at the knees. Standing people now have legs.
+  - Walk cycle (`walkPose`): legs and arms swing in opposition and knees bend on the swing.
+    Sitting (`setSeated`) uses the same joints.
+  - Speed: each part's pieces are merged and colored with vertex colors, every person
+    shares one material, and geometries are cached per color combination.
+- **Realistic tram and stations** (`objects/tram.js`):
+  - Tram: painted livery (canvas texture with lettering and car number), rounded cab ends
+    with windshields, destination signs, head and tail lights, corrugated roof with
+    equipment, seats and grab poles inside, door windows, flanged wheels.
+  - Stations: tiled platforms with a tactile safety edge, a curved corrugated roof on steel
+    columns, glass wind screens, wooden benches, a lit name sign and a "next tram" display.
+    Furniture stays clear of where the walkway arrives.
+- **Textured coral, shark and manta:**
+  - Coral: a sponge normal map for pores, plus a canvas polyp texture tinted by each
+    instance's color.
+  - Shark and manta: a leather normal map for skin grain, plus a mottled canvas color map
+    multiplied over their vertex-color countershading. The manta got proper UVs (a
+    top-down projection of its planform).
+- **Brighter nights** (`objects/environment.js`): the night water is a deep blue instead
+  of near-black, the moonlight and ambient light stay stronger, and the extra night fog is
+  thinner. `NightLights` adds warm point lights over each hub, the dock and the mining
+  rig that fade in with `reef.night`. They stay switched on at intensity 0 during the day,
+  because adding or removing lights would recompile every shader.
+- **Fish skin shader** (`fishSkin` in `objects/fishSchool.js`): a TSL color node paints
+  each fish from its un-bent local position: countershading (dark back, pale belly), a
+  scalloped scale pattern, dark stripes on about a third of the fish (chosen by the
+  per-instance phase), darker fins and tail, and an eye on each side. The body sphere has
+  more segments, so the flat shading looks smoother.
+- **Performance** (`objects/performance.js`):
+  - Adaptive resolution: the frame rate is measured. Below 45 fps the pixel ratio drops;
+    after several smooth windows it rises again (up to 2x on high-DPI screens).
+  - Nothing is drawn while the canvas is scrolled off screen or the tab is hidden
+    (IntersectionObserver).
+  - Distance culling: dome interiors are hidden, and their animations paused, when the
+    camera is far away, with hysteresis so they don't flicker.
+  - Textures are loaded once and shared between uses (`texturePack` caches them).
+
 ## The four hubs (`objects/interiors.js`)
 - **Café Coral (cafeteria):**
   - Buffet line with a sneeze guard, food pans, heat lamps, trays, plates and a drinks
@@ -212,8 +276,8 @@ wheel moves forward and back.
 | 2 | Boids (cheese becomes food, poop becomes the shark), capped turning, hierarchies, crab legs and claws |
 | 3 | Cardinal splines plus arc-length tables (sub, tram, turtle, manta, shark), equal arc-length stroke resampling, track with rails and ties |
 | 4 | `lookAt` tracking (beacon follows the sub), spotlights, `CanvasTexture` signs |
-| 5 | `GrObject`, hand-built `BufferGeometry` (sea floor, wreck hull, manta), normal map (rocks), bump map (coral), environment map (glass), day/night glow windows, 4-DOF mining rig |
-| 6 | Instancing (fish, coral, rocks, ties, bubbles, snow), merged static geometry |
+| 5 | `GrObject`, hand-built `BufferGeometry` (sea floor, wreck hull, manta), normal maps (rocks, coral, shark, manta, tram), bump map (coral), environment map (glass), day/night glow windows, 4-DOF mining rig |
+| 6 | Instancing (fish, coral, rocks, ties, bubbles, snow), merged static geometry (people parts, station pieces) |
 | 7 | Skinning, morphing, tubes and sweeps (walkway tubes, rails, eel) |
 
 ---
@@ -238,10 +302,14 @@ wheel moves forward and back.
 ## AI statement and attributions (you must fill these in; "none" is not allowed blank)
 - **AI:** be accurate. Claude (Anthropic) was used heavily to design the town and write
   the code. Check the course AI policy and describe your own contribution honestly.
-- **Texture attribution (required):** six CC0 (public-domain) texture sets from
+- **Texture attribution (required):** eleven CC0 (public-domain) texture sets from
   **ambientCG** (https://ambientcg.com), resized to 512 px in `textures/`:
-  - Ground054 (sea floor sand), Rock063 (rocks), Planks037A (shipwreck)
-  - Concrete034 (hub bases), DiamondPlate008A (corridor floors, dock), MetalPlates004 (submarine hull)
+  - Ground054 (sea floor sand), Rock063 (rocks), Planks037A (shipwreck, station benches)
+  - Concrete034 (hub bases, platform sides), DiamondPlate008A (corridor floors, dock),
+    MetalPlates004 (submarine hull, tram body)
+  - Sponge001 (coral pores), Leather037 (shark and manta skin grain)
+  - CorrugatedSteel009 (tram and station roofs), Rubber004 (tram floor), Tiles107
+    (station platforms)
 
   CC0 needs no permission, but the course still requires you to list them.
 - **Attributions:**
@@ -249,4 +317,6 @@ wheel moves forward and back.
   - three.js r180 (MIT), loaded from unpkg, including the `BufferGeometryUtils` add-on.
   - The noise is an implementation of Ken Perlin's published "Improved Noise" algorithm.
   - Code reused from your own earlier workbooks needs no attribution.
-- **Assets:** no external models or image files. All textures are painted in code.
+- **Assets:** no external models. The only image files are the ambientCG textures above;
+  every other texture (signs, livery, polyps, skin mottling, glass panels) is painted in
+  code with canvas.

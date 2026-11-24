@@ -27,7 +27,7 @@
 import * as T from "three";
 import { MeshStandardNodeMaterial } from "three/webgpu";
 import {
-  Fn, vec3, float, sin, cross, normalize, smoothstep, positionGeometry,
+  Fn, vec3, vec2, float, sin, cross, normalize, smoothstep, positionGeometry, mix, abs, length, step,
   instancedDynamicBufferAttribute, instancedBufferAttribute, uniform,
 } from "three/tsl";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -40,7 +40,7 @@ import { SCHOOL_CENTER, SCHOOL_EXTENT, OBSTACLES, SHAPE_CENTER, SHAPE_SIZE } fro
 
 /** fish body built along +Z (nose at +Z), about 1 unit long */
 export function makeFishGeometry() {
-  const body = new T.SphereGeometry(0.5, 12, 8);
+  const body = new T.SphereGeometry(0.5, 16, 10);
   body.scale(0.32, 0.55, 1.0);
   const tail = new T.ConeGeometry(0.34, 0.5, 4);
   tail.rotateX(Math.PI / 2); // tip -> +Z (joins the body)
@@ -51,6 +51,42 @@ export function makeFishGeometry() {
   dorsal.translate(0, 0.3, -0.05);
   return mergeGeometries([body, tail, dorsal]);
 }
+
+/**
+ * Fish skin, painted in the shader from the fish's own (un-bent) coordinates:
+ *  - countershading: a darker back and a pale belly, like real schooling fish
+ *  - scales: a fine scalloped pattern of slightly darker rows
+ *  - stripes: dark vertical bands on about a third of the fish (picked by phase)
+ *  - darker fins and tail
+ *  - an eye on each side: a dark pupil in a light ring
+ * Returns the color for one fish with base color `base`.
+ */
+const fishSkin = Fn(([base, phase]) => {
+  const p = positionGeometry;
+  const back = smoothstep(float(0.02), float(0.24), p.y);
+  const belly = smoothstep(float(-0.02), float(-0.22), p.y);
+  const col = mix(base, base.mul(0.55), back).toVar();
+  col.assign(mix(col, vec3(0.96, 0.95, 0.9), belly.mul(0.6)));
+  // scales: offset rows of little arcs
+  const sc = sin(p.z.mul(52.0)).mul(sin(p.y.mul(52.0).add(p.z.mul(26.0))));
+  col.mulAssign(float(1.0).sub(smoothstep(float(0.55), float(1.0), sc).mul(0.16)));
+  // stripes (only some fish, only on the body)
+  const striped = step(float(4.2), phase);
+  const onBody = step(float(-0.48), p.z).mul(step(p.y, float(0.27)));
+  const stripe = smoothstep(float(0.72), float(0.92), sin(p.z.mul(15.0).add(1.0))).mul(striped).mul(onBody);
+  col.assign(mix(col, base.mul(0.28), stripe.mul(0.7)));
+  // fins and tail: darker
+  const fin = float(1.0).sub(onBody);
+  col.assign(mix(col, base.mul(0.42), fin.mul(0.75)));
+  // eyes, on the sides near the front
+  const d = length(vec2(p.z.sub(0.32), p.y.sub(0.06)));
+  const side = step(float(0.06), abs(p.x));
+  const ring = float(1.0).sub(smoothstep(float(0.05), float(0.062), d)).mul(side);
+  const pupil = float(1.0).sub(smoothstep(float(0.028), float(0.036), d)).mul(side);
+  col.assign(mix(col, vec3(0.95, 0.93, 0.85), ring));
+  col.assign(mix(col, vec3(0.02, 0.02, 0.03), pupil));
+  return col;
+});
 
 /** the tail wiggle: bend x more and more toward the tail, as a traveling wave */
 const wiggle = Fn(([p, phase, freq]) => {
@@ -118,7 +154,9 @@ export class FishSchool extends GrObject {
 
     const uGlow = uniform(0.0); // extra glow while holding a shape
 
-    const material = new MeshStandardNodeMaterial({ roughness: 0.4, metalness: 0.15, flatShading: true });
+    // (flat shading: the vertex shader moves the vertices but not the normals, so
+    // normals come from the screen-space derivatives of the final positions)
+    const material = new MeshStandardNodeMaterial({ roughness: 0.34, metalness: 0.25, flatShading: true });
     material.positionNode = Fn(() => {
       const p = wiggle(positionGeometry, iPhase, float(9.0));
       // build the fish's frame from its swimming direction
@@ -127,7 +165,7 @@ export class FishSchool extends GrObject {
       const up = cross(fwd, right);
       return iPos.add(right.mul(p.x).add(up.mul(p.y)).add(fwd.mul(p.z)).mul(iScale));
     })();
-    material.colorNode = iColor;
+    material.colorNode = fishSkin(iColor, iPhase);
     // bioluminescence: glow at night, brighter while they hold a shape
     material.emissiveNode = vec3(0.25, 0.85, 1.0).mul(uNight.mul(0.55).add(uGlow.mul(uNight).mul(0.9)));
 
